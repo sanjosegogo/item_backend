@@ -28,6 +28,7 @@ function bindElements() {
     "auth-view",
     "app-view",
     "google-login",
+    "auth-retry",
     "auth-message",
     "sync-button",
     "search-input",
@@ -56,6 +57,7 @@ function bindElements() {
 }
 
 function bindEvents() {
+  els.authRetry.addEventListener("click", setupAuth);
   els.syncButton.addEventListener("click", loadAdminData);
   els.searchInput.addEventListener("input", (event) => {
     state.query = event.target.value.trim().toLowerCase();
@@ -84,11 +86,14 @@ async function setupAuth() {
     return;
   }
 
+  els.authRetry.classList.add("hidden");
+  els.googleLogin.innerHTML = "";
   els.authMessage.textContent = "正在載入 Google 登入...";
 
-  const googleIdentity = await waitForGoogleIdentity();
+  const googleIdentity = await loadGoogleIdentity();
   if (!googleIdentity) {
-    els.authMessage.textContent = "Google 登入載入失敗，請重新整理頁面或換 Safari/Chrome 開啟。";
+    els.authRetry.classList.remove("hidden");
+    els.authMessage.textContent = "Google 登入載入失敗，請點重新載入登入，或換 Safari/Chrome 開啟。";
     return;
   }
 
@@ -115,6 +120,32 @@ function isConfigured() {
   return !CONFIG.apiBaseUrl.includes("PASTE_") && !CONFIG.googleClientId.includes("PASTE_");
 }
 
+async function loadGoogleIdentity() {
+  if (window.google?.accounts?.id) return window.google.accounts.id;
+  await injectGoogleIdentityScript();
+  return waitForGoogleIdentity();
+}
+
+function injectGoogleIdentityScript() {
+  return new Promise((resolve) => {
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => resolve(), { once: true });
+      setTimeout(resolve, 2500);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.head.appendChild(script);
+  });
+}
+
 function waitForGoogleIdentity() {
   return new Promise((resolve) => {
     const startedAt = Date.now();
@@ -124,7 +155,7 @@ function waitForGoogleIdentity() {
         resolve(window.google.accounts.id);
         return;
       }
-      if (Date.now() - startedAt > 10000) {
+      if (Date.now() - startedAt > 30000) {
         window.clearInterval(timer);
         resolve(null);
       }
