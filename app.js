@@ -12,6 +12,7 @@ const state = {
   query: "",
   customBrands: [],
   customSaleLabels: [],
+  uploadedImages: new Map(),
 };
 
 const els = {};
@@ -68,6 +69,7 @@ function bindEvents() {
       state.filter = button.dataset.filter;
       document.querySelectorAll(".segment").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
+      renderCounts();
       renderProducts();
     });
   });
@@ -78,6 +80,15 @@ function bindEvents() {
   els.saveProductButton.addEventListener("click", saveProduct);
   els.addMarqueeRow.addEventListener("click", () => addMarqueeRow({ active: true }));
   els.saveMarqueeButton.addEventListener("click", saveMarquee);
+  ["market-price", "sale-price", "special-price"].forEach((name) => {
+    document.getElementById(`field-${name}`).addEventListener("input", updateDiscountFields);
+  });
+  document.querySelectorAll("[data-clear-field]").forEach((button) => {
+    button.addEventListener("click", () => clearTextField(button.dataset.clearField));
+  });
+  document.querySelectorAll("[data-clear-image]").forEach((button) => {
+    button.addEventListener("click", () => clearImageField(button.dataset.clearImage));
+  });
 }
 
 async function setupAuth() {
@@ -170,10 +181,10 @@ async function loadAdminData() {
     state.marquee = result.marquee || [];
     showApp();
     renderAll();
-    toast("已同步");
+    toast("已同步", "success");
   } catch (error) {
     els.authMessage.textContent = error.message;
-    toast(error.message);
+    toast(error.message, "error");
   }
 }
 
@@ -204,9 +215,12 @@ function renderSaleBreakdown() {
 
   const items = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hant"));
   els.saleBreakdown.innerHTML = items.map(([label, count]) => (
-    `<span class="sale-count">${escapeHtml(label)}<strong>${count}</strong></span>`
+    `<button class="sale-count ${state.filter === `sale:${label}` ? "active" : ""}" type="button" data-sale-filter="${escapeAttr(label)}">${escapeHtml(label)}<strong>${count}</strong></button>`
   )).join("");
   els.saleBreakdown.classList.toggle("hidden", items.length === 0);
+  els.saleBreakdown.querySelectorAll("[data-sale-filter]").forEach((button) => {
+    button.addEventListener("click", () => applySaleFilter(button.dataset.saleFilter));
+  });
 }
 
 function renderProducts() {
@@ -254,7 +268,8 @@ function filteredProducts() {
       state.filter === "all" ||
       (state.filter === "live" && product.active) ||
       (state.filter === "paused" && !product.active) ||
-      (state.filter === "sale" && product.saleLabel);
+      (state.filter === "sale" && product.saleLabel) ||
+      (state.filter.startsWith("sale:") && product.saleLabel === state.filter.slice(5));
 
     const haystack = [product.name, product.brand, product.saleLabel, product.size]
       .filter(Boolean)
@@ -263,6 +278,15 @@ function filteredProducts() {
 
     return matchesFilter && (!state.query || haystack.includes(state.query));
   }).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+}
+
+function applySaleFilter(label) {
+  state.filter = state.filter === `sale:${label}` ? "all" : `sale:${label}`;
+  document.querySelectorAll(".segment").forEach((item) => {
+    item.classList.toggle("active", item.dataset.filter === state.filter);
+  });
+  renderCounts();
+  renderProducts();
 }
 
 async function toggleProduct(id) {
@@ -306,20 +330,31 @@ function openProductDialog(product = null) {
   setField("discount", value.discount);
   setField("special-discount", value.specialDiscount);
   setField("post-url", value.postUrl);
+  state.uploadedImages.clear();
   for (let index = 1; index <= 5; index += 1) {
     setField(`image-${index}`, value.images?.[index - 1] || "");
     const fileInput = document.getElementById(`file-image-${index}`);
-    if (fileInput) fileInput.value = "";
+    if (fileInput) {
+      fileInput.value = "";
+      delete fileInput.dataset.uploadedSignature;
+      delete fileInput.dataset.uploadedUrl;
+    }
   }
+  updateDiscountFields();
   els.productDialog.showModal();
 }
 
 async function saveProduct() {
   if (!els.productForm.reportValidity()) return;
-  await uploadSelectedImages();
+  try {
+    await uploadSelectedImages();
+  } catch (error) {
+    toast(error.message, "error");
+    return;
+  }
   const product = readProductForm();
   if (!product.images[0]) {
-    toast("圖片 1 為必填，請貼網址或上傳圖片");
+    toast("圖片 1 為必填，請貼網址或上傳圖片", "error");
     return;
   }
   const index = state.products.findIndex((item) => String(item.id) === String(product.id));
@@ -335,9 +370,9 @@ async function saveProduct() {
 async function persistProduct(product, message) {
   try {
     await apiRequest("admin_save_product", { product });
-    toast(message);
+    toast(message, "success");
   } catch (error) {
-    toast(error.message);
+    toast(error.message, "error");
   }
 }
 
@@ -374,6 +409,30 @@ function populateSelect(select, options, value, emptyLabel) {
   select.value = normalizedValue;
 }
 
+function updateDiscountFields() {
+  const marketPrice = parseMoney(getField("market-price"));
+  const salePrice = parseMoney(getField("sale-price"));
+  const specialPrice = parseMoney(getField("special-price"));
+  const discount = marketPrice > 0 && salePrice > 0 ? roundDiscount(salePrice / marketPrice) : "";
+  const specialDiscount = salePrice > 0 && specialPrice > 0 ? roundDiscount(specialPrice / salePrice) : "";
+  setField("discount", discount);
+  setField("special-discount", specialDiscount);
+  document.getElementById("discount-hint").textContent = discount
+    ? `特價 ${salePrice.toLocaleString("zh-TW")} ÷ 專櫃價 ${marketPrice.toLocaleString("zh-TW")} = ${discount}`
+    : "特價 ÷ 專櫃價";
+  document.getElementById("special-discount-hint").textContent = specialDiscount
+    ? `特賣金額 ${specialPrice.toLocaleString("zh-TW")} ÷ 特價 ${salePrice.toLocaleString("zh-TW")} = ${specialDiscount}`
+    : "特賣金額 ÷ 特價";
+}
+
+function roundDiscount(value) {
+  return Math.round(value * 100) / 100;
+}
+
+function parseMoney(value) {
+  return Number(String(value || "").replace(/[^\d.]/g, "")) || 0;
+}
+
 function getBrandOptions() {
   return [...state.products.map((product) => product.brand), ...state.customBrands].filter(Boolean);
 }
@@ -407,13 +466,60 @@ async function uploadSelectedImages() {
     const fileInput = document.getElementById(`file-image-${index}`);
     const file = fileInput?.files?.[0];
     if (!file) continue;
+    const signature = fileSignature(file);
+    const currentUrl = getField(`image-${index}`);
 
-    toast(`正在上傳圖片 ${index}...`);
+    if (fileInput.dataset.uploadedSignature === signature && fileInput.dataset.uploadedUrl && currentUrl === fileInput.dataset.uploadedUrl) {
+      toast(`圖片 ${index} 已上傳完成；若要換圖，請重新選取新檔案。`, "info");
+      continue;
+    }
+
+    toast(`正在上傳圖片 ${index}...`, "info");
     const image = await prepareImageUpload(file);
     const result = await apiRequest("admin_upload_image", image);
     setField(`image-${index}`, result.url);
+    fileInput.dataset.uploadedSignature = signature;
+    fileInput.dataset.uploadedUrl = result.url;
     fileInput.value = "";
+    toast(`圖片 ${index} 上傳完成`, "success");
   }
+}
+
+async function clearTextField(name) {
+  setField(name, "");
+  toast("欄位已清空，記得儲存商品。", "info");
+}
+
+async function clearImageField(index) {
+  const fieldName = `image-${index}`;
+  const url = getField(fieldName);
+  const fileId = extractDriveFileId(url);
+  setField(fieldName, "");
+  const fileInput = document.getElementById(`file-image-${index}`);
+  if (fileInput) {
+    fileInput.value = "";
+    delete fileInput.dataset.uploadedSignature;
+    delete fileInput.dataset.uploadedUrl;
+  }
+  if (!fileId) {
+    toast(`圖片 ${index} 已清空，記得儲存商品。`, "info");
+    return;
+  }
+  try {
+    await apiRequest("admin_delete_image", { fileId });
+    toast(`圖片 ${index} 已清空，Drive 檔案已移到垃圾桶。`, "success");
+  } catch (error) {
+    toast(`圖片已清空，但 Drive 刪除失敗：${error.message}`, "error");
+  }
+}
+
+function fileSignature(file) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function extractDriveFileId(url) {
+  const value = String(url || "");
+  return value.match(/[?&]id=([^&]+)/)?.[1] || value.match(/\/d\/([^/]+)/)?.[1] || "";
 }
 
 async function prepareImageUpload(file) {
@@ -470,18 +576,50 @@ function addMarqueeRow(row = {}) {
     </label>
     <label>
       <span>文案</span>
-      <input data-key="text" value="${escapeAttr(row.text || "")}">
+      <div class="clearable-field">
+        <input data-key="text" value="${escapeAttr(row.text || "")}">
+        <button class="mini-action clear-action" type="button" data-clear-marquee="text" aria-label="清空文案">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
     </label>
     <label>
       <span>連結</span>
-      <input data-key="url" type="url" value="${escapeAttr(row.url || "")}">
+      <div class="clearable-field">
+        <input data-key="url" type="url" value="${escapeAttr(row.url || "")}">
+        <button class="mini-action clear-action" type="button" data-clear-marquee="url" aria-label="清空連結">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
     </label>
     <label>
       <span>到期日</span>
-      <input data-key="expiresAt" type="date" value="${escapeAttr(formatDateInput(row.expiresAt))}">
+      <div class="clearable-field">
+        <input data-key="expiresAt" type="date" value="${escapeAttr(formatDateInput(row.expiresAt))}">
+        <button class="mini-action clear-action" type="button" data-clear-marquee="expiresAt" aria-label="清空到期日">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
     </label>
+    <div class="marquee-row-actions">
+      <button class="secondary-action danger-action" type="button" data-delete-marquee>
+        <i data-lucide="trash-2"></i>
+        刪除這則跑馬燈
+      </button>
+    </div>
   `;
+  node.querySelectorAll("[data-clear-marquee]").forEach((button) => {
+    button.addEventListener("click", () => {
+      node.querySelector(`[data-key="${button.dataset.clearMarquee}"]`).value = "";
+      toast("跑馬燈欄位已清空，記得儲存。", "info");
+    });
+  });
+  node.querySelector("[data-delete-marquee]").addEventListener("click", () => {
+    node.remove();
+    toast("跑馬燈已刪除，記得儲存。", "warn");
+  });
   els.marqueeList.appendChild(node);
+  refreshIcons();
 }
 
 async function saveMarquee() {
@@ -495,9 +633,9 @@ async function saveMarquee() {
   els.marqueeDialog.close();
   try {
     await apiRequest("admin_save_marquee", { marquee: state.marquee });
-    toast("跑馬燈已儲存");
+    toast("跑馬燈已儲存", "success");
   } catch (error) {
-    toast(error.message);
+    toast(error.message, "error");
   }
 }
 
@@ -550,11 +688,14 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#96;");
 }
 
-function toast(message) {
+function toast(message, type = "info") {
   els.toast.textContent = message;
+  els.toast.className = `toast show ${type}`;
   els.toast.classList.add("show");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => els.toast.classList.remove("show"), 2400);
+  toast.timer = setTimeout(() => {
+    els.toast.className = "toast";
+  }, 3600);
 }
 
 function refreshIcons() {
