@@ -78,6 +78,10 @@
           <i data-lucide="badge-alert"></i>
           跑馬燈
         </button>
+        <button id="catalog-button" class="secondary-action" type="button">
+          <i data-lucide="tags"></i>
+          分類管理
+        </button>
       </section>
 
       <section id="product-list" class="product-list" aria-label="商品清單"></section>
@@ -265,6 +269,39 @@
         <button id="save-marquee-button" class="primary-action" type="button">
           <i data-lucide="save"></i>
           儲存
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="catalog-dialog" class="sheet-dialog">
+    <form method="dialog">
+      <header class="dialog-header">
+        <div>
+          <p class="eyebrow">CATALOG</p>
+          <h2>分類管理</h2>
+        </div>
+        <button class="icon-button" value="cancel" formnovalidate aria-label="關閉" type="submit">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+
+      <div class="catalog-body">
+        <div class="segmented catalog-tabs" role="group" aria-label="分類類型">
+          <button id="catalog-tab-sale" class="segment active" data-catalog-tab="saleLabels" type="button">活動標籤</button>
+          <button id="catalog-tab-brand" class="segment" data-catalog-tab="brands" type="button">品牌</button>
+        </div>
+        <div id="catalog-list" class="catalog-list"></div>
+      </div>
+
+      <footer class="dialog-actions">
+        <button id="add-catalog-row" class="secondary-action" type="button">
+          <i data-lucide="plus"></i>
+          新增
+        </button>
+        <button id="save-catalog-button" class="primary-action" type="button">
+          <i data-lucide="save"></i>
+          儲存分類
         </button>
       </footer>
     </form>
