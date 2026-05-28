@@ -10,6 +10,7 @@
   --mint: #0f9f7a;
   --amber: #b76e00;
   --danger: #c24141;
+  --info: #2563eb;
   --shadow: 0 18px 50px rgba(35, 48, 76, 0.13);
 }
 
@@ -165,6 +166,13 @@ button {
   font-size: 0.78rem;
   font-weight: 900;
   overflow-wrap: anywhere;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.sale-count.active {
+  background: var(--accent);
+  color: white;
 }
 
 .control-band {
@@ -449,6 +457,7 @@ button {
 .marquee-row label {
   display: grid;
   gap: 6px;
+  min-width: 0;
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 900;
@@ -473,10 +482,17 @@ button {
   resize: vertical;
 }
 
-.option-control {
+.option-control,
+.clearable-field {
   display: grid;
   grid-template-columns: 1fr 44px;
   gap: 8px;
+  min-width: 0;
+}
+
+.option-control > *,
+.clearable-field > * {
+  min-width: 0;
 }
 
 .mini-action {
@@ -487,6 +503,18 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.clear-action {
+  background: #fff1f2;
+  color: var(--danger);
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .image-field {
@@ -507,32 +535,62 @@ button {
 
 .marquee-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   padding: 12px;
   border: 1px solid var(--soft);
   border-radius: 8px;
 }
 
+.marquee-row-actions {
+  display: grid;
+  grid-template-columns: 1fr 44px;
+  gap: 8px;
+}
+
+.danger-action {
+  background: #fff1f2;
+  color: var(--danger);
+}
+
 .toast {
   position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: 18px;
+  left: 14px;
+  right: 14px;
+  top: 16px;
+  bottom: auto;
   z-index: 40;
-  min-height: 44px;
+  min-height: 56px;
   display: none;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
   background: var(--ink);
   color: white;
-  padding: 10px 14px;
+  padding: 14px 16px;
   font-weight: 800;
   box-shadow: var(--shadow);
+  text-align: center;
 }
 
 .toast.show {
   display: flex;
+}
+
+.toast.success {
+  background: var(--mint);
+}
+
+.toast.error {
+  background: var(--danger);
+}
+
+.toast.info {
+  background: var(--info);
+}
+
+.toast.warn {
+  background: var(--amber);
 }
 
 svg {
@@ -557,6 +615,15 @@ svg {
 
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .marquee-row {
+    grid-template-columns: 120px minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: end;
+  }
+
+  .marquee-row-actions {
+    grid-column: 1 / -1;
   }
 
   .wide {
