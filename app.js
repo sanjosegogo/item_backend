@@ -1,6 +1,6 @@
 const CONFIG = {
   apiBaseUrl: "https://script.google.com/macros/s/AKfycbwaSKimOWvuUWTVNOojwwBryLr5yLLX5TIWzpPFTolKmCHQlgl1hNqGvpgu4C6QC4ei/exec",
-  googleClientId: "424188945884-t50f6ig69j2pedjf5sv5t2sgs2hpco0g.apps.googleusercontent.com",
+  googleClientId: "424188945884-c9vlb5ck5cqk409jetlo03nvlbqcaftj.apps.googleusercontent.com",
   demoModeWhenUnconfigured: true,
 };
 
