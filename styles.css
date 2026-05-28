@@ -559,7 +559,7 @@ button {
   right: 14px;
   top: 16px;
   bottom: auto;
-  z-index: 40;
+  z-index: 9999;
   min-height: 56px;
   display: none;
   align-items: center;
@@ -571,6 +571,9 @@ button {
   font-weight: 800;
   box-shadow: var(--shadow);
   text-align: center;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .toast.show {
