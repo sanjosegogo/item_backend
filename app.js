@@ -46,6 +46,7 @@ function bindElements() {
     "add-product-button",
     "marquee-button",
     "catalog-button",
+    "archive-product-button",
     "add-brand-option",
     "add-sale-option",
     "product-dialog",
@@ -89,6 +90,7 @@ function bindEvents() {
   els.addBrandOption.addEventListener("click", () => addOption("brand"));
   els.addSaleOption.addEventListener("click", () => addOption("saleLabel"));
   els.saveProductButton.addEventListener("click", saveProduct);
+  els.archiveProductButton.addEventListener("click", archiveCurrentProduct);
   els.addMarqueeRow.addEventListener("click", () => addMarqueeRow({ active: true }));
   els.saveMarqueeButton.addEventListener("click", saveMarquee);
   els.addCatalogRow.addEventListener("click", () => addCatalogRow());
@@ -230,16 +232,16 @@ function renderAll() {
 }
 
 function renderCounts() {
-  els.countLive.textContent = state.products.filter((item) => item.active).length;
-  els.countPaused.textContent = state.products.filter((item) => !item.active).length;
-  els.countSale.textContent = state.products.filter((item) => item.saleLabel).length;
+  els.countLive.textContent = state.products.filter((item) => item.active && !item.archived).length;
+  els.countPaused.textContent = state.products.filter((item) => !item.active && !item.archived).length;
+  els.countSale.textContent = state.products.filter((item) => item.saleLabel && !item.archived).length;
   renderSaleBreakdown();
 }
 
 function renderSaleBreakdown() {
   const counts = new Map();
   state.products.forEach((product) => {
-    if (!product.saleLabel) return;
+    if (!product.saleLabel || product.archived) return;
     counts.set(product.saleLabel, (counts.get(product.saleLabel) || 0) + 1);
   });
 
@@ -271,12 +273,13 @@ function renderProducts() {
         <p class="product-price">${formatPrice(product.specialPrice || product.salePrice)}</p>
         <div class="product-meta">
           <span class="pill ${product.active ? "live" : "paused"}">${product.active ? "上架" : "下架"}</span>
+          ${product.archived ? `<span class="pill paused">封存</span>` : ""}
           <span class="pill">${escapeHtml(product.brand || "其他")}</span>
           ${product.saleLabel ? `<span class="pill sale">${escapeHtml(product.saleLabel)}</span>` : ""}
         </div>
         <div class="card-actions">
           <button class="toggle-button ${product.active ? "live" : "paused"}" type="button">
-            ${product.active ? "目前上架" : "目前下架"}
+            ${product.archived ? "恢復商品" : product.active ? "目前上架" : "目前下架"}
           </button>
           <button class="edit-button" type="button" aria-label="編輯">
             <i data-lucide="pencil"></i>
@@ -297,16 +300,17 @@ function filteredProducts() {
     const matchesFilter =
       state.filter === "all" ||
       (state.filter === "live" && product.active) ||
-      (state.filter === "paused" && !product.active) ||
-      (state.filter === "sale" && product.saleLabel) ||
-      (state.filter.startsWith("sale:") && product.saleLabel === state.filter.slice(5));
+      (state.filter === "paused" && !product.active && !product.archived) ||
+      (state.filter === "sale" && product.saleLabel && !product.archived) ||
+      (state.filter === "archived" && product.archived) ||
+      (state.filter.startsWith("sale:") && product.saleLabel === state.filter.slice(5) && !product.archived);
 
     const haystack = [product.name, product.brand, product.saleLabel, product.size]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
 
-    return matchesFilter && (!state.query || haystack.includes(state.query));
+    return matchesFilter && (state.filter === "archived" || !product.archived) && (!state.query || haystack.includes(state.query));
   }).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 }
 
@@ -322,6 +326,13 @@ function applySaleFilter(label) {
 async function toggleProduct(id) {
   const product = state.products.find((item) => String(item.id) === String(id));
   if (!product) return;
+  if (product.archived) {
+    product.archived = false;
+    product.active = false;
+    renderAll();
+    await persistProduct(product, "商品已恢復為下架狀態");
+    return;
+  }
   product.active = !product.active;
   renderAll();
   await persistProduct(product, "上下架已更新");
@@ -352,12 +363,15 @@ function openProductDialog(product = null) {
     size: "F",
     brand: "",
     postUrl: "",
+    internalNote: "",
+    archived: false,
     images: [],
   };
 
   els.dialogTitle.textContent = isNew ? "新增商品" : "編輯商品";
   populateOptionSelects(value);
   setField("id", value.id);
+  setField("internal-note", value.internalNote);
   setField("active", value.active ? "TRUE" : "FALSE");
   setField("brand", value.brand);
   setField("name", value.name);
@@ -370,6 +384,10 @@ function openProductDialog(product = null) {
   setField("special-discount", value.specialDiscount);
   setField("post-url", value.postUrl);
   state.uploadedImages.clear();
+  els.archiveProductButton.classList.toggle("hidden", isNew);
+  els.archiveProductButton.innerHTML = value.archived
+    ? '<i data-lucide="archive-restore"></i> 解除封存'
+    : '<i data-lucide="archive"></i> 封存商品';
   for (let index = 1; index <= 5; index += 1) {
     setField(`image-${index}`, value.images?.[index - 1] || "");
     const fileInput = document.getElementById(`file-image-${index}`);
@@ -396,6 +414,7 @@ async function saveProduct() {
     return;
   }
   const product = readProductForm();
+  if (product.archived) product.active = false;
   if (!product.images[0]) {
     setButtonState(els.saveProductButton, "error", "缺少圖片 1");
     setTimeout(() => resetButtonState(els.saveProductButton, "儲存"), 1800);
@@ -434,8 +453,35 @@ function readProductForm() {
     size: getField("size") || "F",
     brand: getField("brand") || "其他",
     postUrl: getField("post-url"),
+    internalNote: getField("internal-note"),
+    archived: state.products.find((item) => String(item.id) === String(getField("id")))?.archived || false,
     images: [1, 2, 3, 4, 5].map((index) => getField(`image-${index}`)).filter(Boolean),
   };
+}
+
+async function archiveCurrentProduct() {
+  const id = getField("id");
+  const product = state.products.find((item) => String(item.id) === String(id));
+  if (!product) return;
+  if (product.archived) {
+    product.archived = false;
+    product.active = false;
+    setButtonState(els.archiveProductButton, "saving", "恢復中...");
+    await persistProduct(product, "商品已恢復為下架狀態");
+    resetButtonState(els.archiveProductButton, "封存商品");
+    els.productDialog.close();
+    renderAll();
+    return;
+  }
+  const confirmed = window.confirm("封存後商品會立即下架，並從一般商品列表隱藏。確定要封存嗎？");
+  if (!confirmed) return;
+  product.archived = true;
+  product.active = false;
+  setButtonState(els.archiveProductButton, "saving", "封存中...");
+  await persistProduct(product, "商品已封存並下架");
+  resetButtonState(els.archiveProductButton, "封存商品");
+  els.productDialog.close();
+  renderAll();
 }
 
 function populateOptionSelects(product = {}) {
