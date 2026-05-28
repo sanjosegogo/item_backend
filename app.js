@@ -1,5 +1,5 @@
 const CONFIG = {
-  apiBaseUrl: "https://script.google.com/macros/s/AKfycbwaSKimOWvuUWTVNOojwwBryLr5yLLX5TIWzpPFTolKmCHQlgl1hNqGvpgu4C6QC4ei/exec",
+  apiBaseUrl: "https://script.google.com/macros/s/AKfycbwWislHB2kK-MLyLs7fhWT3wbcjxThJYxUDmeaj_zyGE0NYLOny8F1fGb2tBEWIfE7D/exec",
   googleClientId: "424188945884-c9vlb5ck5cqk409jetlo03nvlbqcaftj.apps.googleusercontent.com",
 };
 
@@ -31,6 +31,7 @@ function bindElements() {
     "google-login",
     "auth-retry",
     "auth-message",
+    "user-label",
     "sync-button",
     "search-input",
     "product-list",
@@ -52,6 +53,7 @@ function bindElements() {
     "add-marquee-row",
     "save-marquee-button",
     "toast",
+    "dialog-toast",
   ].forEach((id) => {
     els[toCamel(id)] = document.getElementById(id);
   });
@@ -179,6 +181,7 @@ async function loadAdminData() {
     const result = await apiRequest("admin_list", {});
     state.products = result.products || [];
     state.marquee = result.marquee || [];
+    state.user = result.admin || state.user;
     showApp();
     renderAll();
     toast("已同步", "success");
@@ -191,6 +194,7 @@ async function loadAdminData() {
 function showApp() {
   els.authView.classList.add("hidden");
   els.appView.classList.remove("hidden");
+  els.userLabel.textContent = state.user?.email ? `登入：${state.user.email}` : "已登入";
 }
 
 function renderAll() {
@@ -689,13 +693,19 @@ function escapeAttr(value) {
 }
 
 function toast(message, type = "info") {
-  els.toast.textContent = message;
-  els.toast.className = `toast show ${type}`;
-  els.toast.classList.add("show");
+  const target = getToastTarget();
+  target.textContent = message;
+  target.className = `${target.id === "dialog-toast" ? "dialog-toast" : "toast"} show ${type}`;
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => {
-    els.toast.className = "toast";
+    target.className = target.id === "dialog-toast" ? "dialog-toast" : "toast";
   }, 3600);
+}
+
+function getToastTarget() {
+  const productOpen = els.productDialog?.open;
+  const marqueeOpen = els.marqueeDialog?.open;
+  return productOpen || marqueeOpen ? els.dialogToast : els.toast;
 }
 
 function refreshIcons() {
