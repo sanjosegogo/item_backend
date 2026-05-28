@@ -208,7 +208,7 @@ button {
 
 .segmented {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
   margin-top: 10px;
 }
@@ -574,6 +574,7 @@ button {
 
 .catalog-tabs {
   margin-top: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .catalog-list {
