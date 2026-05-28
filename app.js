@@ -1,7 +1,6 @@
 const CONFIG = {
   apiBaseUrl: "https://script.google.com/macros/s/AKfycbwaSKimOWvuUWTVNOojwwBryLr5yLLX5TIWzpPFTolKmCHQlgl1hNqGvpgu4C6QC4ei/exec",
   googleClientId: "424188945884-c9vlb5ck5cqk409jetlo03nvlbqcaftj.apps.googleusercontent.com",
-  demoModeWhenUnconfigured: true,
 };
 
 const state = {
@@ -11,71 +10,9 @@ const state = {
   marquee: [],
   filter: "all",
   query: "",
-  demoMode: false,
+  customBrands: [],
+  customSaleLabels: [],
 };
-
-const sampleProducts = [
-  {
-    id: 1,
-    active: true,
-    saleLabel: "當週新品",
-    discount: 0.8,
-    specialDiscount: 0,
-    name: "TORY BURCH 防刮皮革名片夾-焦糖色",
-    marketPrice: 3400,
-    salePrice: 2720,
-    specialPrice: "",
-    size: "約長10CM、高7CM",
-    brand: "TORY BURCH",
-    postUrl: "",
-    images: [
-      "https://assets.breezeonline.com/online/production/product/6332b933-f155-4323-8e82-a5f714e92fd0.jpg",
-    ],
-  },
-  {
-    id: 2,
-    active: true,
-    saleLabel: "📣下殺折扣",
-    discount: 0.7,
-    specialDiscount: 0.65,
-    name: "MICHAEL KORS Lita 小牛皮 皮革金鏈掀蓋斜背包(黑色)",
-    marketPrice: 9000,
-    salePrice: 6300,
-    specialPrice: 4095,
-    size: "F",
-    brand: "MICHAEL KORS",
-    postUrl: "",
-    images: [
-      "https://tw.buy.yahoo.com/res/gdsale/st_pic/1019/st-10190516-1.jpg",
-    ],
-  },
-  {
-    id: 3,
-    active: false,
-    saleLabel: "",
-    discount: 0.8,
-    specialDiscount: 0,
-    name: "Kate Spade Whiskers 專櫃白色貓咪款",
-    marketPrice: 3900,
-    salePrice: 3120,
-    specialPrice: "",
-    size: "約寬20CM，高10CM",
-    brand: "Kate Spade",
-    postUrl: "",
-    images: [
-      "https://katespade.scene7.com/is/image/KateSpade/KI714_001?$desktopProductZoom$",
-    ],
-  },
-];
-
-const sampleMarquee = [
-  {
-    active: true,
-    text: "臉書成立9年感恩回饋",
-    url: "https://www.facebook.com/groups/183038802197503/",
-    expiresAt: "2026-12-31",
-  },
-];
 
 const els = {};
 
@@ -91,7 +28,6 @@ function bindElements() {
     "auth-view",
     "app-view",
     "google-login",
-    "demo-login",
     "auth-message",
     "sync-button",
     "search-input",
@@ -100,8 +36,11 @@ function bindElements() {
     "count-live",
     "count-paused",
     "count-sale",
+    "sale-breakdown",
     "add-product-button",
     "marquee-button",
+    "add-brand-option",
+    "add-sale-option",
     "product-dialog",
     "product-form",
     "dialog-title",
@@ -117,7 +56,6 @@ function bindElements() {
 }
 
 function bindEvents() {
-  els.demoLogin.addEventListener("click", enterDemoMode);
   els.syncButton.addEventListener("click", loadAdminData);
   els.searchInput.addEventListener("input", (event) => {
     state.query = event.target.value.trim().toLowerCase();
@@ -133,20 +71,28 @@ function bindEvents() {
   });
   els.addProductButton.addEventListener("click", () => openProductDialog());
   els.marqueeButton.addEventListener("click", openMarqueeDialog);
+  els.addBrandOption.addEventListener("click", () => addOption("brand"));
+  els.addSaleOption.addEventListener("click", () => addOption("saleLabel"));
   els.saveProductButton.addEventListener("click", saveProduct);
   els.addMarqueeRow.addEventListener("click", () => addMarqueeRow({ active: true }));
   els.saveMarqueeButton.addEventListener("click", saveMarquee);
 }
 
-function setupAuth() {
+async function setupAuth() {
   if (!isConfigured()) {
-    if (CONFIG.demoModeWhenUnconfigured) {
-      els.authMessage.textContent = "目前是未串接狀態，可先預覽介面。";
-    }
+    els.authMessage.textContent = "尚未完成後台設定，請確認 API 與 Google Client ID。";
     return;
   }
 
-  window.google?.accounts.id.initialize({
+  els.authMessage.textContent = "正在載入 Google 登入...";
+
+  const googleIdentity = await waitForGoogleIdentity();
+  if (!googleIdentity) {
+    els.authMessage.textContent = "Google 登入載入失敗，請重新整理頁面或換 Safari/Chrome 開啟。";
+    return;
+  }
+
+  googleIdentity.initialize({
     client_id: CONFIG.googleClientId,
     callback: async (response) => {
       state.token = response.credential;
@@ -154,40 +100,40 @@ function setupAuth() {
     },
   });
 
-  window.google?.accounts.id.renderButton(els.googleLogin, {
+  googleIdentity.renderButton(els.googleLogin, {
     theme: "outline",
     size: "large",
     width: "100%",
     text: "signin_with",
     shape: "rectangular",
   });
+
+  els.authMessage.textContent = "";
 }
 
 function isConfigured() {
   return !CONFIG.apiBaseUrl.includes("PASTE_") && !CONFIG.googleClientId.includes("PASTE_");
 }
 
-function enterDemoMode() {
-  state.demoMode = true;
-  state.products = structuredClone(sampleProducts);
-  state.marquee = structuredClone(sampleMarquee);
-  showApp();
-  renderAll();
-  toast("已進入預覽模式");
+function waitForGoogleIdentity() {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      if (window.google?.accounts?.id) {
+        window.clearInterval(timer);
+        resolve(window.google.accounts.id);
+        return;
+      }
+      if (Date.now() - startedAt > 10000) {
+        window.clearInterval(timer);
+        resolve(null);
+      }
+    }, 120);
+  });
 }
 
 async function loadAdminData() {
   try {
-    if (state.demoMode || !isConfigured()) {
-      state.products = structuredClone(sampleProducts);
-      state.marquee = structuredClone(sampleMarquee);
-      state.demoMode = true;
-      showApp();
-      renderAll();
-      toast("已載入預覽資料");
-      return;
-    }
-
     const result = await apiRequest("admin_list", {});
     state.products = result.products || [];
     state.marquee = result.marquee || [];
@@ -215,6 +161,21 @@ function renderCounts() {
   els.countLive.textContent = state.products.filter((item) => item.active).length;
   els.countPaused.textContent = state.products.filter((item) => !item.active).length;
   els.countSale.textContent = state.products.filter((item) => item.saleLabel).length;
+  renderSaleBreakdown();
+}
+
+function renderSaleBreakdown() {
+  const counts = new Map();
+  state.products.forEach((product) => {
+    if (!product.saleLabel) return;
+    counts.set(product.saleLabel, (counts.get(product.saleLabel) || 0) + 1);
+  });
+
+  const items = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hant"));
+  els.saleBreakdown.innerHTML = items.map(([label, count]) => (
+    `<span class="sale-count">${escapeHtml(label)}<strong>${count}</strong></span>`
+  )).join("");
+  els.saleBreakdown.classList.toggle("hidden", items.length === 0);
 }
 
 function renderProducts() {
@@ -230,6 +191,7 @@ function renderProducts() {
       <div class="product-main">
         <div class="product-line">
           <h2 class="product-title">${escapeHtml(product.name)}</h2>
+          <span class="product-id">#${escapeHtml(product.id)}</span>
         </div>
         <p class="product-price">${formatPrice(product.specialPrice || product.salePrice)}</p>
         <div class="product-meta">
@@ -269,7 +231,7 @@ function filteredProducts() {
       .toLowerCase();
 
     return matchesFilter && (!state.query || haystack.includes(state.query));
-  });
+  }).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 }
 
 async function toggleProduct(id) {
@@ -300,6 +262,7 @@ function openProductDialog(product = null) {
   };
 
   els.dialogTitle.textContent = isNew ? "新增商品" : "編輯商品";
+  populateOptionSelects(value);
   setField("id", value.id);
   setField("active", value.active ? "TRUE" : "FALSE");
   setField("brand", value.brand);
@@ -314,16 +277,25 @@ function openProductDialog(product = null) {
   setField("post-url", value.postUrl);
   for (let index = 1; index <= 5; index += 1) {
     setField(`image-${index}`, value.images?.[index - 1] || "");
+    const fileInput = document.getElementById(`file-image-${index}`);
+    if (fileInput) fileInput.value = "";
   }
   els.productDialog.showModal();
 }
 
 async function saveProduct() {
   if (!els.productForm.reportValidity()) return;
+  await uploadSelectedImages();
   const product = readProductForm();
+  if (!product.images[0]) {
+    toast("圖片 1 為必填，請貼網址或上傳圖片");
+    return;
+  }
   const index = state.products.findIndex((item) => String(item.id) === String(product.id));
   if (index >= 0) state.products[index] = product;
   else state.products.unshift(product);
+  rememberOption("brand", product.brand);
+  rememberOption("saleLabel", product.saleLabel);
   els.productDialog.close();
   renderAll();
   await persistProduct(product, "商品已儲存");
@@ -331,7 +303,7 @@ async function saveProduct() {
 
 async function persistProduct(product, message) {
   try {
-    if (!state.demoMode) await apiRequest("admin_save_product", { product });
+    await apiRequest("admin_save_product", { product });
     toast(message);
   } catch (error) {
     toast(error.message);
@@ -354,6 +326,96 @@ function readProductForm() {
     postUrl: getField("post-url"),
     images: [1, 2, 3, 4, 5].map((index) => getField(`image-${index}`)).filter(Boolean),
   };
+}
+
+function populateOptionSelects(product = {}) {
+  populateSelect(document.getElementById("field-brand"), getBrandOptions(), product.brand, "選擇品牌");
+  populateSelect(document.getElementById("field-sale-label"), getSaleOptions(), product.saleLabel, "無活動");
+}
+
+function populateSelect(select, options, value, emptyLabel) {
+  const normalizedValue = value || "";
+  const allOptions = [...new Set(options.filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-Hant"));
+  if (normalizedValue && !allOptions.includes(normalizedValue)) allOptions.unshift(normalizedValue);
+  select.innerHTML = `<option value="">${emptyLabel}</option>` + allOptions.map((option) => (
+    `<option value="${escapeAttr(option)}">${escapeHtml(option)}</option>`
+  )).join("");
+  select.value = normalizedValue;
+}
+
+function getBrandOptions() {
+  return [...state.products.map((product) => product.brand), ...state.customBrands].filter(Boolean);
+}
+
+function getSaleOptions() {
+  return [...state.products.map((product) => product.saleLabel), ...state.customSaleLabels].filter(Boolean);
+}
+
+function addOption(type) {
+  const isBrand = type === "brand";
+  const label = window.prompt(isBrand ? "新增品牌名稱" : "新增活動名稱");
+  const value = label?.trim();
+  if (!value) return;
+  rememberOption(type, value);
+  if (isBrand) {
+    populateSelect(document.getElementById("field-brand"), getBrandOptions(), value, "選擇品牌");
+  } else {
+    populateSelect(document.getElementById("field-sale-label"), getSaleOptions(), value, "無活動");
+  }
+  refreshIcons();
+}
+
+function rememberOption(type, value) {
+  if (!value) return;
+  const target = type === "brand" ? state.customBrands : state.customSaleLabels;
+  if (!target.includes(value)) target.push(value);
+}
+
+async function uploadSelectedImages() {
+  for (let index = 1; index <= 5; index += 1) {
+    const fileInput = document.getElementById(`file-image-${index}`);
+    const file = fileInput?.files?.[0];
+    if (!file) continue;
+
+    toast(`正在上傳圖片 ${index}...`);
+    const image = await prepareImageUpload(file);
+    const result = await apiRequest("admin_upload_image", image);
+    setField(`image-${index}`, result.url);
+    fileInput.value = "";
+  }
+}
+
+async function prepareImageUpload(file) {
+  const dataUrl = await resizeImage(file, 1600, 0.84);
+  const [meta, base64] = dataUrl.split(",");
+  const mimeType = meta.match(/data:(.*);base64/)?.[1] || "image/jpeg";
+  return {
+    fileName: file.name.replace(/\.[^.]+$/, "") + ".jpg",
+    mimeType,
+    base64,
+  };
+}
+
+function resizeImage(file, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("圖片讀取失敗"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("圖片格式無法讀取"));
+      img.onload = () => {
+        const ratio = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function openMarqueeDialog() {
@@ -401,7 +463,7 @@ async function saveMarquee() {
 
   els.marqueeDialog.close();
   try {
-    if (!state.demoMode) await apiRequest("admin_save_marquee", { marquee: state.marquee });
+    await apiRequest("admin_save_marquee", { marquee: state.marquee });
     toast("跑馬燈已儲存");
   } catch (error) {
     toast(error.message);
