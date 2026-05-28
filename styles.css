@@ -175,12 +175,6 @@ button {
   font-weight: 900;
   overflow-wrap: anywhere;
   border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.sale-count.active {
-  background: var(--accent);
-  color: white;
 }
 
 .control-band {
@@ -208,7 +202,7 @@ button {
 
 .segmented {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   margin-top: 10px;
 }
@@ -224,6 +218,26 @@ button {
 .segment.active {
   background: var(--ink);
   color: white;
+}
+
+.filter-select {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.filter-select select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--soft);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: white;
+  color: var(--ink);
+  font-weight: 800;
 }
 
 .toolbar {
