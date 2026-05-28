@@ -8,6 +8,9 @@ const state = {
   user: null,
   products: [],
   marquee: [],
+  brands: [],
+  saleLabels: [],
+  catalogTab: "saleLabels",
   filter: "all",
   query: "",
   customBrands: [],
@@ -42,6 +45,7 @@ function bindElements() {
     "sale-breakdown",
     "add-product-button",
     "marquee-button",
+    "catalog-button",
     "add-brand-option",
     "add-sale-option",
     "product-dialog",
@@ -52,6 +56,10 @@ function bindElements() {
     "marquee-list",
     "add-marquee-row",
     "save-marquee-button",
+    "catalog-dialog",
+    "catalog-list",
+    "add-catalog-row",
+    "save-catalog-button",
     "toast",
     "dialog-toast",
   ].forEach((id) => {
@@ -77,11 +85,21 @@ function bindEvents() {
   });
   els.addProductButton.addEventListener("click", () => openProductDialog());
   els.marqueeButton.addEventListener("click", openMarqueeDialog);
+  els.catalogButton.addEventListener("click", openCatalogDialog);
   els.addBrandOption.addEventListener("click", () => addOption("brand"));
   els.addSaleOption.addEventListener("click", () => addOption("saleLabel"));
   els.saveProductButton.addEventListener("click", saveProduct);
   els.addMarqueeRow.addEventListener("click", () => addMarqueeRow({ active: true }));
   els.saveMarqueeButton.addEventListener("click", saveMarquee);
+  els.addCatalogRow.addEventListener("click", () => addCatalogRow());
+  els.saveCatalogButton.addEventListener("click", saveCatalogs);
+  document.querySelectorAll("[data-catalog-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.catalogTab = button.dataset.catalogTab;
+      document.querySelectorAll("[data-catalog-tab]").forEach((item) => item.classList.toggle("active", item === button));
+      renderCatalogRows();
+    });
+  });
   ["market-price", "sale-price", "special-price"].forEach((name) => {
     document.getElementById(`field-${name}`).addEventListener("input", updateDiscountFields);
   });
@@ -185,6 +203,8 @@ async function loadAdminData() {
     const result = await apiRequest("admin_list", {});
     state.products = result.products || [];
     state.marquee = result.marquee || [];
+    state.brands = normalizeCatalog(result.brands || [], "brand");
+    state.saleLabels = normalizeCatalog(result.saleLabels || [], "saleLabel");
     state.user = result.admin || state.user;
     showApp();
     renderAll();
@@ -458,11 +478,13 @@ function parseMoney(value) {
 }
 
 function getBrandOptions() {
-  return [...state.products.map((product) => product.brand), ...state.customBrands].filter(Boolean);
+  const managed = state.brands.filter((item) => item.active).map((item) => item.name);
+  return [...managed, ...state.products.map((product) => product.brand), ...state.customBrands].filter(Boolean);
 }
 
 function getSaleOptions() {
-  return [...state.products.map((product) => product.saleLabel), ...state.customSaleLabels].filter(Boolean);
+  const managed = state.saleLabels.filter((item) => item.active).map((item) => item.name);
+  return [...managed, ...state.products.map((product) => product.saleLabel), ...state.customSaleLabels].filter(Boolean);
 }
 
 function addOption(type) {
@@ -483,6 +505,10 @@ function rememberOption(type, value) {
   if (!value) return;
   const target = type === "brand" ? state.customBrands : state.customSaleLabels;
   if (!target.includes(value)) target.push(value);
+  const catalog = type === "brand" ? state.brands : state.saleLabels;
+  if (!catalog.some((item) => item.name === value)) {
+    catalog.push(makeCatalogItem(value, catalog.length + 1));
+  }
 }
 
 async function uploadSelectedImages(button = null, product = null) {
@@ -707,6 +733,118 @@ async function saveMarquee() {
     setButtonState(els.saveMarqueeButton, "error", "儲存失敗");
     setTimeout(() => resetButtonState(els.saveMarqueeButton, "儲存"), 1800);
   }
+}
+
+function openCatalogDialog() {
+  state.catalogTab = "saleLabels";
+  document.querySelectorAll("[data-catalog-tab]").forEach((item) => {
+    item.classList.toggle("active", item.dataset.catalogTab === state.catalogTab);
+  });
+  renderCatalogRows();
+  els.catalogDialog.showModal();
+  refreshIcons();
+}
+
+function renderCatalogRows() {
+  const list = getActiveCatalogList();
+  els.catalogList.innerHTML = "";
+  list.forEach((item, index) => {
+    const usage = countCatalogUsage(state.catalogTab, item.name);
+    const row = document.createElement("article");
+    row.className = "catalog-row";
+    row.innerHTML = `
+      <button class="catalog-status ${item.active ? "active" : ""}" type="button" data-toggle-catalog>${item.active ? "啟用" : "停用"}</button>
+      <input type="text" value="${escapeAttr(item.name)}" data-catalog-name aria-label="分類名稱">
+      <button class="mini-action danger-action" type="button" data-delete-catalog aria-label="刪除分類">
+        <i data-lucide="trash-2"></i>
+      </button>
+      <small class="field-hint">使用中：${usage} 件</small>
+    `;
+    row.querySelector("[data-toggle-catalog]").addEventListener("click", () => {
+      item.active = !item.active;
+      renderCatalogRows();
+    });
+    row.querySelector("[data-catalog-name]").addEventListener("input", (event) => {
+      item.name = event.target.value.trim();
+    });
+    row.querySelector("[data-delete-catalog]").addEventListener("click", () => {
+      if (usage > 0) {
+        toast(`此分類仍有 ${usage} 件商品使用中，請先改名或停用。`, "warn");
+        return;
+      }
+      list.splice(index, 1);
+      renderCatalogRows();
+    });
+    els.catalogList.appendChild(row);
+  });
+  refreshIcons();
+}
+
+function addCatalogRow() {
+  const list = getActiveCatalogList();
+  list.push(makeCatalogItem("", list.length + 1));
+  renderCatalogRows();
+}
+
+async function saveCatalogs() {
+  setButtonState(els.saveCatalogButton, "saving", "儲存中...");
+  try {
+    state.brands = cleanCatalog(state.brands);
+    state.saleLabels = cleanCatalog(state.saleLabels);
+    const result = await apiRequest("admin_save_catalogs", {
+      brands: state.brands,
+      saleLabels: state.saleLabels,
+    });
+    state.products = result.products || state.products;
+    state.brands = normalizeCatalog(result.brands || state.brands, "brand");
+    state.saleLabels = normalizeCatalog(result.saleLabels || state.saleLabels, "saleLabel");
+    populateOptionSelects(readProductForm());
+    renderCounts();
+    setButtonState(els.saveCatalogButton, "success", "已儲存");
+    setTimeout(() => {
+      resetButtonState(els.saveCatalogButton, "儲存分類");
+      els.catalogDialog.close();
+    }, 700);
+  } catch (error) {
+    setButtonState(els.saveCatalogButton, "error", "儲存失敗");
+    setTimeout(() => resetButtonState(els.saveCatalogButton, "儲存分類"), 1800);
+  }
+}
+
+function getActiveCatalogList() {
+  return state.catalogTab === "brands" ? state.brands : state.saleLabels;
+}
+
+function countCatalogUsage(type, name) {
+  if (!name) return 0;
+  const key = type === "brands" ? "brand" : "saleLabel";
+  return state.products.filter((product) => product[key] === name).length;
+}
+
+function normalizeCatalog(items, fallbackType) {
+  const sourceValues = fallbackType === "brand"
+    ? state.products.map((product) => product.brand)
+    : state.products.map((product) => product.saleLabel);
+  const base = items.length ? items : [...new Set(sourceValues.filter(Boolean))].map((name, index) => makeCatalogItem(name, index + 1));
+  return cleanCatalog(base);
+}
+
+function cleanCatalog(items) {
+  const seen = new Set();
+  return items
+    .map((item, index) => ({
+      active: item.active !== false,
+      name: String(item.name || "").trim(),
+      sort: Number(item.sort) || index + 1,
+      note: item.note || "",
+      originalName: item.originalName || item.name || "",
+    }))
+    .filter((item) => item.name && !seen.has(item.name) && seen.add(item.name))
+    .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name, "zh-Hant"));
+}
+
+function makeCatalogItem(name, sort) {
+  return { active: true, name, sort, note: "", originalName: name };
 }
 
 async function apiRequest(action, payload) {
