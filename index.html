@@ -19,10 +19,6 @@
       <h1>商品後台</h1>
       <p>聖荷西好物購-艾菲精品</p>
       <div id="google-login"></div>
-      <button id="demo-login" class="secondary-action" type="button">
-        <i data-lucide="monitor-smartphone"></i>
-        預覽介面
-      </button>
       <div id="auth-message" class="auth-message" role="status"></div>
     </section>
   </div>
@@ -53,6 +49,7 @@
           <p>活動</p>
         </article>
       </section>
+      <section id="sale-breakdown" class="sale-breakdown" aria-label="活動數量"></section>
 
       <section class="control-band">
         <label class="search-box">
@@ -109,7 +106,12 @@
         </label>
         <label>
           <span>品牌</span>
-          <input id="field-brand" required>
+          <div class="option-control">
+            <select id="field-brand" required></select>
+            <button id="add-brand-option" class="mini-action" type="button" aria-label="新增品牌">
+              <i data-lucide="plus"></i>
+            </button>
+          </div>
         </label>
         <label class="wide">
           <span>商品名稱</span>
@@ -121,7 +123,12 @@
         </label>
         <label>
           <span>活動標籤</span>
-          <input id="field-sale-label" placeholder="例如：當週新品">
+          <div class="option-control">
+            <select id="field-sale-label"></select>
+            <button id="add-sale-option" class="mini-action" type="button" aria-label="新增活動">
+              <i data-lucide="plus"></i>
+            </button>
+          </div>
         </label>
         <label>
           <span>專櫃價</span>
@@ -149,23 +156,38 @@
         </label>
         <label class="wide">
           <span>圖片 1</span>
-          <input id="field-image-1" type="url" required>
+          <div class="image-field">
+            <input id="field-image-1" type="url" placeholder="圖片網址或上傳圖片">
+            <input id="file-image-1" type="file" accept="image/*">
+          </div>
         </label>
         <label class="wide">
           <span>圖片 2</span>
-          <input id="field-image-2" type="url">
+          <div class="image-field">
+            <input id="field-image-2" type="url" placeholder="圖片網址或上傳圖片">
+            <input id="file-image-2" type="file" accept="image/*">
+          </div>
         </label>
         <label class="wide">
           <span>圖片 3</span>
-          <input id="field-image-3" type="url">
+          <div class="image-field">
+            <input id="field-image-3" type="url" placeholder="圖片網址或上傳圖片">
+            <input id="file-image-3" type="file" accept="image/*">
+          </div>
         </label>
         <label class="wide">
           <span>圖片 4</span>
-          <input id="field-image-4" type="url">
+          <div class="image-field">
+            <input id="field-image-4" type="url" placeholder="圖片網址或上傳圖片">
+            <input id="file-image-4" type="file" accept="image/*">
+          </div>
         </label>
         <label class="wide">
           <span>圖片 5</span>
-          <input id="field-image-5" type="url">
+          <div class="image-field">
+            <input id="field-image-5" type="url" placeholder="圖片網址或上傳圖片">
+            <input id="file-image-5" type="file" accept="image/*">
+          </div>
         </label>
       </div>
 
