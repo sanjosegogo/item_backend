@@ -148,48 +148,80 @@
         </label>
         <label>
           <span>一般折數</span>
-          <input id="field-discount" inputmode="decimal" placeholder="0.8">
+          <input id="field-discount" inputmode="decimal" placeholder="0.8" readonly>
+          <small id="discount-hint" class="field-hint">特價 ÷ 專櫃價</small>
         </label>
         <label>
           <span>特賣折數</span>
-          <input id="field-special-discount" inputmode="decimal" placeholder="0.65">
+          <input id="field-special-discount" inputmode="decimal" placeholder="0.65" readonly>
+          <small id="special-discount-hint" class="field-hint">特賣金額 ÷ 特價</small>
         </label>
         <label class="wide">
           <span>社團貼文連結</span>
-          <input id="field-post-url" type="url">
+          <div class="clearable-field">
+            <input id="field-post-url" type="url">
+            <button class="mini-action clear-action" type="button" data-clear-field="post-url" aria-label="清空社團貼文連結">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
         </label>
         <label class="wide">
           <span>圖片 1</span>
           <div class="image-field">
-            <input id="field-image-1" type="url" placeholder="圖片網址或上傳圖片">
+            <div class="clearable-field">
+              <input id="field-image-1" type="url" placeholder="圖片網址或上傳圖片">
+              <button class="mini-action clear-action" type="button" data-clear-image="1" aria-label="清空圖片 1">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
             <input id="file-image-1" type="file" accept="image/*">
           </div>
         </label>
         <label class="wide">
           <span>圖片 2</span>
           <div class="image-field">
-            <input id="field-image-2" type="url" placeholder="圖片網址或上傳圖片">
+            <div class="clearable-field">
+              <input id="field-image-2" type="url" placeholder="圖片網址或上傳圖片">
+              <button class="mini-action clear-action" type="button" data-clear-image="2" aria-label="清空圖片 2">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
             <input id="file-image-2" type="file" accept="image/*">
           </div>
         </label>
         <label class="wide">
           <span>圖片 3</span>
           <div class="image-field">
-            <input id="field-image-3" type="url" placeholder="圖片網址或上傳圖片">
+            <div class="clearable-field">
+              <input id="field-image-3" type="url" placeholder="圖片網址或上傳圖片">
+              <button class="mini-action clear-action" type="button" data-clear-image="3" aria-label="清空圖片 3">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
             <input id="file-image-3" type="file" accept="image/*">
           </div>
         </label>
         <label class="wide">
           <span>圖片 4</span>
           <div class="image-field">
-            <input id="field-image-4" type="url" placeholder="圖片網址或上傳圖片">
+            <div class="clearable-field">
+              <input id="field-image-4" type="url" placeholder="圖片網址或上傳圖片">
+              <button class="mini-action clear-action" type="button" data-clear-image="4" aria-label="清空圖片 4">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
             <input id="file-image-4" type="file" accept="image/*">
           </div>
         </label>
         <label class="wide">
           <span>圖片 5</span>
           <div class="image-field">
-            <input id="field-image-5" type="url" placeholder="圖片網址或上傳圖片">
+            <div class="clearable-field">
+              <input id="field-image-5" type="url" placeholder="圖片網址或上傳圖片">
+              <button class="mini-action clear-action" type="button" data-clear-image="5" aria-label="清空圖片 5">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
             <input id="file-image-5" type="file" accept="image/*">
           </div>
         </label>
