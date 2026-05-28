@@ -91,6 +91,10 @@ function bindEvents() {
   document.querySelectorAll("[data-clear-image]").forEach((button) => {
     button.addEventListener("click", () => clearImageField(button.dataset.clearImage));
   });
+  for (let index = 1; index <= 5; index += 1) {
+    document.getElementById(`field-image-${index}`).addEventListener("input", () => updateImagePreview(index));
+    document.getElementById(`file-image-${index}`).addEventListener("change", () => handleImageFileSelected(index));
+  }
 }
 
 async function setupAuth() {
@@ -194,7 +198,9 @@ async function loadAdminData() {
 function showApp() {
   els.authView.classList.add("hidden");
   els.appView.classList.remove("hidden");
-  els.userLabel.textContent = state.user?.email ? `登入：${state.user.email}` : "已登入";
+  if (els.userLabel) {
+    els.userLabel.textContent = state.user?.email ? `登入：${state.user.email}` : "已登入";
+  }
 }
 
 function renderAll() {
@@ -301,6 +307,15 @@ async function toggleProduct(id) {
   await persistProduct(product, "上下架已更新");
 }
 
+async function persistProduct(product, message) {
+  try {
+    await apiRequest("admin_save_product", { product });
+    toast(message, "success");
+  } catch (error) {
+    toast(error.message, "error");
+  }
+}
+
 function openProductDialog(product = null) {
   const isNew = !product;
   const nextId = Math.max(0, ...state.products.map((item) => Number(item.id) || 0)) + 1;
@@ -343,6 +358,7 @@ function openProductDialog(product = null) {
       delete fileInput.dataset.uploadedSignature;
       delete fileInput.dataset.uploadedUrl;
     }
+    updateImagePreview(index);
   }
   updateDiscountFields();
   els.productDialog.showModal();
@@ -350,33 +366,37 @@ function openProductDialog(product = null) {
 
 async function saveProduct() {
   if (!els.productForm.reportValidity()) return;
+  setButtonState(els.saveProductButton, "saving", "儲存中...");
+  const draftProduct = readProductForm();
   try {
-    await uploadSelectedImages();
+    await uploadSelectedImages(els.saveProductButton, draftProduct);
   } catch (error) {
-    toast(error.message, "error");
+    setButtonState(els.saveProductButton, "error", "儲存失敗");
+    setTimeout(() => resetButtonState(els.saveProductButton, "儲存"), 1800);
     return;
   }
   const product = readProductForm();
   if (!product.images[0]) {
-    toast("圖片 1 為必填，請貼網址或上傳圖片", "error");
+    setButtonState(els.saveProductButton, "error", "缺少圖片 1");
+    setTimeout(() => resetButtonState(els.saveProductButton, "儲存"), 1800);
     return;
   }
-  const index = state.products.findIndex((item) => String(item.id) === String(product.id));
-  if (index >= 0) state.products[index] = product;
-  else state.products.unshift(product);
-  rememberOption("brand", product.brand);
-  rememberOption("saleLabel", product.saleLabel);
-  els.productDialog.close();
-  renderAll();
-  await persistProduct(product, "商品已儲存");
-}
-
-async function persistProduct(product, message) {
   try {
     await apiRequest("admin_save_product", { product });
-    toast(message, "success");
+    const index = state.products.findIndex((item) => String(item.id) === String(product.id));
+    if (index >= 0) state.products[index] = product;
+    else state.products.unshift(product);
+    rememberOption("brand", product.brand);
+    rememberOption("saleLabel", product.saleLabel);
+    renderAll();
+    setButtonState(els.saveProductButton, "success", "已儲存");
+    setTimeout(() => {
+      resetButtonState(els.saveProductButton, "儲存");
+      els.productDialog.close();
+    }, 700);
   } catch (error) {
-    toast(error.message, "error");
+    setButtonState(els.saveProductButton, "error", "儲存失敗");
+    setTimeout(() => resetButtonState(els.saveProductButton, "儲存"), 1800);
   }
 }
 
@@ -465,7 +485,7 @@ function rememberOption(type, value) {
   if (!target.includes(value)) target.push(value);
 }
 
-async function uploadSelectedImages() {
+async function uploadSelectedImages(button = null, product = null) {
   for (let index = 1; index <= 5; index += 1) {
     const fileInput = document.getElementById(`file-image-${index}`);
     const file = fileInput?.files?.[0];
@@ -474,18 +494,18 @@ async function uploadSelectedImages() {
     const currentUrl = getField(`image-${index}`);
 
     if (fileInput.dataset.uploadedSignature === signature && fileInput.dataset.uploadedUrl && currentUrl === fileInput.dataset.uploadedUrl) {
-      toast(`圖片 ${index} 已上傳完成；若要換圖，請重新選取新檔案。`, "info");
+      if (button) setButtonState(button, "saving", `圖片 ${index} 已上傳`);
       continue;
     }
 
-    toast(`正在上傳圖片 ${index}...`, "info");
-    const image = await prepareImageUpload(file);
+    if (button) setButtonState(button, "saving", `上傳圖片 ${index}...`);
+    const image = await prepareImageUpload(file, index, product);
     const result = await apiRequest("admin_upload_image", image);
     setField(`image-${index}`, result.url);
+    updateImagePreview(index);
     fileInput.dataset.uploadedSignature = signature;
     fileInput.dataset.uploadedUrl = result.url;
     fileInput.value = "";
-    toast(`圖片 ${index} 上傳完成`, "success");
   }
 }
 
@@ -499,6 +519,7 @@ async function clearImageField(index) {
   const url = getField(fieldName);
   const fileId = extractDriveFileId(url);
   setField(fieldName, "");
+  updateImagePreview(index);
   const fileInput = document.getElementById(`file-image-${index}`);
   if (fileInput) {
     fileInput.value = "";
@@ -517,6 +538,30 @@ async function clearImageField(index) {
   }
 }
 
+function handleImageFileSelected(index) {
+  const fileInput = document.getElementById(`file-image-${index}`);
+  const file = fileInput?.files?.[0];
+  if (!file) return;
+  const preview = document.getElementById(`preview-image-${index}`);
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove("hidden");
+  delete fileInput.dataset.uploadedSignature;
+  delete fileInput.dataset.uploadedUrl;
+}
+
+function updateImagePreview(index) {
+  const preview = document.getElementById(`preview-image-${index}`);
+  const url = getField(`image-${index}`);
+  if (!preview) return;
+  if (!url) {
+    preview.removeAttribute("src");
+    preview.classList.add("hidden");
+    return;
+  }
+  preview.src = url;
+  preview.classList.remove("hidden");
+}
+
 function fileSignature(file) {
   return `${file.name}-${file.size}-${file.lastModified}`;
 }
@@ -526,15 +571,31 @@ function extractDriveFileId(url) {
   return value.match(/[?&]id=([^&]+)/)?.[1] || value.match(/\/d\/([^/]+)/)?.[1] || "";
 }
 
-async function prepareImageUpload(file) {
+async function prepareImageUpload(file, imageIndex, product = null) {
   const dataUrl = await resizeImage(file, 1600, 0.84);
   const [meta, base64] = dataUrl.split(",");
   const mimeType = meta.match(/data:(.*);base64/)?.[1] || "image/jpeg";
   return {
-    fileName: file.name.replace(/\.[^.]+$/, "") + ".jpg",
+    fileName: buildImageFileName(file, imageIndex, product),
     mimeType,
     base64,
   };
+}
+
+function buildImageFileName(file, imageIndex, product = null) {
+  const id = sanitizeFilePart(product?.id || getField("id") || "new");
+  const name = sanitizeFilePart(product?.name || getField("name") || "product").slice(0, 36);
+  const original = sanitizeFilePart(file.name.replace(/\.[^.]+$/, "") || "upload").slice(0, 24);
+  return `item-${id}-image-${imageIndex}-${name}-${original}.jpg`;
+}
+
+function sanitizeFilePart(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[\\/:*?"<>|#%&{}$!'@+=`~]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "item";
 }
 
 function resizeImage(file, maxSize, quality) {
@@ -627,6 +688,7 @@ function addMarqueeRow(row = {}) {
 }
 
 async function saveMarquee() {
+  setButtonState(els.saveMarqueeButton, "saving", "儲存中...");
   state.marquee = [...els.marqueeList.querySelectorAll(".marquee-row")].map((row) => ({
     active: row.querySelector('[data-key="active"]').value === "TRUE",
     text: row.querySelector('[data-key="text"]').value.trim(),
@@ -634,12 +696,16 @@ async function saveMarquee() {
     expiresAt: row.querySelector('[data-key="expiresAt"]').value,
   })).filter((row) => row.text);
 
-  els.marqueeDialog.close();
   try {
     await apiRequest("admin_save_marquee", { marquee: state.marquee });
-    toast("跑馬燈已儲存", "success");
+    setButtonState(els.saveMarqueeButton, "success", "已儲存");
+    setTimeout(() => {
+      resetButtonState(els.saveMarqueeButton, "儲存");
+      els.marqueeDialog.close();
+    }, 700);
   } catch (error) {
-    toast(error.message, "error");
+    setButtonState(els.saveMarqueeButton, "error", "儲存失敗");
+    setTimeout(() => resetButtonState(els.saveMarqueeButton, "儲存"), 1800);
   }
 }
 
@@ -664,6 +730,22 @@ function getField(name) {
 
 function setField(name, value) {
   document.getElementById(`field-${name}`).value = value ?? "";
+}
+
+function setButtonState(button, type, label) {
+  if (!button) return;
+  button.disabled = type === "saving";
+  button.dataset.state = type;
+  button.innerHTML = `${type === "saving" ? '<i data-lucide="loader-2"></i>' : type === "success" ? '<i data-lucide="check"></i>' : type === "error" ? '<i data-lucide="circle-alert"></i>' : '<i data-lucide="save"></i>'} ${escapeHtml(label)}`;
+  refreshIcons();
+}
+
+function resetButtonState(button, label) {
+  if (!button) return;
+  button.disabled = false;
+  delete button.dataset.state;
+  button.innerHTML = `<i data-lucide="save"></i> ${escapeHtml(label)}`;
+  refreshIcons();
 }
 
 function formatPrice(value) {
@@ -694,6 +776,7 @@ function escapeAttr(value) {
 
 function toast(message, type = "info") {
   const target = getToastTarget();
+  if (!target) return;
   target.textContent = message;
   target.className = `${target.id === "dialog-toast" ? "dialog-toast" : "toast"} show ${type}`;
   clearTimeout(toast.timer);
@@ -705,7 +788,8 @@ function toast(message, type = "info") {
 function getToastTarget() {
   const productOpen = els.productDialog?.open;
   const marqueeOpen = els.marqueeDialog?.open;
-  return productOpen || marqueeOpen ? els.dialogToast : els.toast;
+  if ((productOpen || marqueeOpen) && els.dialogToast) return els.dialogToast;
+  return els.toast;
 }
 
 function refreshIcons() {
