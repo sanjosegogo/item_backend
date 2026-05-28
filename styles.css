@@ -255,6 +255,18 @@ button {
   background: var(--accent-dark);
 }
 
+.primary-action[data-state="saving"] {
+  background: var(--info);
+}
+
+.primary-action[data-state="success"] {
+  background: var(--mint);
+}
+
+.primary-action[data-state="error"] {
+  background: var(--danger);
+}
+
 .secondary-action {
   width: 100%;
   margin-top: 12px;
@@ -533,6 +545,21 @@ button {
 .image-field input[type="file"] {
   padding: 9px 10px;
   background: #f8fafc;
+}
+
+.image-preview {
+  width: 96px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 1px solid var(--soft);
+  background: #f8fafc;
+  object-fit: cover;
+}
+
+.primary-action[disabled],
+.secondary-action[disabled] {
+  opacity: 0.72;
+  cursor: wait;
 }
 
 .marquee-list {
