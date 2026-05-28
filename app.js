@@ -12,6 +12,7 @@ const state = {
   saleLabels: [],
   catalogTab: "saleLabels",
   filter: "all",
+  saleFilter: "",
   query: "",
   customBrands: [],
   customSaleLabels: [],
@@ -43,6 +44,7 @@ function bindElements() {
     "count-paused",
     "count-sale",
     "sale-breakdown",
+    "sale-filter-select",
     "add-product-button",
     "marquee-button",
     "catalog-button",
@@ -73,6 +75,10 @@ function bindEvents() {
   els.syncButton.addEventListener("click", loadAdminData);
   els.searchInput.addEventListener("input", (event) => {
     state.query = event.target.value.trim().toLowerCase();
+    renderProducts();
+  });
+  els.saleFilterSelect.addEventListener("change", (event) => {
+    state.saleFilter = event.target.value;
     renderProducts();
   });
   document.querySelectorAll(".segment").forEach((button) => {
@@ -227,6 +233,7 @@ function showApp() {
 
 function renderAll() {
   renderCounts();
+  renderSaleFilterOptions();
   renderProducts();
   refreshIcons();
 }
@@ -247,12 +254,20 @@ function renderSaleBreakdown() {
 
   const items = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hant"));
   els.saleBreakdown.innerHTML = items.map(([label, count]) => (
-    `<button class="sale-count ${state.filter === `sale:${label}` ? "active" : ""}" type="button" data-sale-filter="${escapeAttr(label)}">${escapeHtml(label)}<strong>${count}</strong></button>`
+    `<span class="sale-count">${escapeHtml(label)}<strong>${count}項</strong></span>`
   )).join("");
   els.saleBreakdown.classList.toggle("hidden", items.length === 0);
-  els.saleBreakdown.querySelectorAll("[data-sale-filter]").forEach((button) => {
-    button.addEventListener("click", () => applySaleFilter(button.dataset.saleFilter));
-  });
+}
+
+function renderSaleFilterOptions() {
+  const labels = [...new Set(state.products.filter((product) => product.saleLabel && !product.archived).map((product) => product.saleLabel))]
+    .sort((a, b) => a.localeCompare(b, "zh-Hant"));
+  const current = state.saleFilter;
+  els.saleFilterSelect.innerHTML = '<option value="">全部活動</option><option value="__none__">無活動</option>' + labels.map((label) => (
+    `<option value="${escapeAttr(label)}">${escapeHtml(label)}</option>`
+  )).join("");
+  els.saleFilterSelect.value = labels.includes(current) || current === "__none__" ? current : "";
+  state.saleFilter = els.saleFilterSelect.value;
 }
 
 function renderProducts() {
@@ -301,26 +316,20 @@ function filteredProducts() {
       state.filter === "all" ||
       (state.filter === "live" && product.active) ||
       (state.filter === "paused" && !product.active && !product.archived) ||
-      (state.filter === "sale" && product.saleLabel && !product.archived) ||
-      (state.filter === "archived" && product.archived) ||
-      (state.filter.startsWith("sale:") && product.saleLabel === state.filter.slice(5) && !product.archived);
+      (state.filter === "archived" && product.archived);
+
+    const matchesSale =
+      !state.saleFilter ||
+      (state.saleFilter === "__none__" && !product.saleLabel) ||
+      product.saleLabel === state.saleFilter;
 
     const haystack = [product.name, product.brand, product.saleLabel, product.size]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
 
-    return matchesFilter && (state.filter === "archived" || !product.archived) && (!state.query || haystack.includes(state.query));
+    return matchesFilter && matchesSale && (state.filter === "archived" || !product.archived) && (!state.query || haystack.includes(state.query));
   }).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
-}
-
-function applySaleFilter(label) {
-  state.filter = state.filter === `sale:${label}` ? "all" : `sale:${label}`;
-  document.querySelectorAll(".segment").forEach((item) => {
-    item.classList.toggle("active", item.dataset.filter === state.filter);
-  });
-  renderCounts();
-  renderProducts();
 }
 
 async function toggleProduct(id) {
