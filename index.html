@@ -66,6 +66,7 @@
           <button class="segment" data-filter="live" type="button">上架</button>
           <button class="segment" data-filter="paused" type="button">下架</button>
           <button class="segment" data-filter="sale" type="button">活動</button>
+          <button class="segment" data-filter="archived" type="button">封存</button>
         </div>
       </section>
 
@@ -106,6 +107,10 @@
 
       <div class="form-grid">
         <input type="hidden" id="field-id">
+        <label class="wide">
+          <span>內部備註</span>
+          <textarea id="field-internal-note" rows="3" placeholder="只給內部查看，例如：王小姐想預定、Yahoo 同款較便宜需確認價格"></textarea>
+        </label>
         <label>
           <span>上架狀態</span>
           <select id="field-active">
@@ -238,6 +243,10 @@
       </div>
 
       <footer class="dialog-actions">
+        <button id="archive-product-button" class="secondary-action danger-action" type="button">
+          <i data-lucide="archive"></i>
+          封存商品
+        </button>
         <button value="cancel" class="secondary-action" type="submit" formnovalidate>取消</button>
         <button id="save-product-button" class="primary-action" type="button">
           <i data-lucide="save"></i>
