@@ -1,5 +1,5 @@
 const CONFIG = {
-  apiBaseUrl: "https://script.google.com/macros/s/AKfycbwaSKimOWvuUWTVNOojwwBryLr5yLLX5TIWzpPFTolKmCHQlgl1hNqGvpgu4C6QC4ei/exec",
+  apiBaseUrl: "https://script.google.com/macros/s/AKfycbwWislHB2kK-MLyLs7fhWT3wbcjxThJYxUDmeaj_zyGE0NYLOny8F1fGb2tBEWIfE7D/exec",
   googleClientId: "424188945884-c9vlb5ck5cqk409jetlo03nvlbqcaftj.apps.googleusercontent.com",
 };
 
