@@ -88,6 +88,14 @@
           <i data-lucide="tags"></i>
           分類管理
         </button>
+        <button id="theme-button" class="secondary-action" type="button">
+          <i data-lucide="palette"></i>
+          網頁配色
+        </button>
+        <button id="permission-button" class="secondary-action hidden" type="button">
+          <i data-lucide="shield-check"></i>
+          權限管理
+        </button>
       </section>
 
       <section id="product-list" class="product-list" aria-label="商品清單"></section>
@@ -122,6 +130,15 @@
             <option value="TRUE">上架</option>
             <option value="FALSE">下架</option>
           </select>
+        </label>
+        <label>
+          <span>商品分類</span>
+          <div class="option-control">
+            <select id="field-category"></select>
+            <button id="add-category-option" class="mini-action" type="button" aria-label="新增商品分類">
+              <i data-lucide="plus"></i>
+            </button>
+          </div>
         </label>
         <label>
           <span>品牌</span>
@@ -303,6 +320,7 @@
       <div class="catalog-body">
         <div class="segmented catalog-tabs" role="group" aria-label="分類類型">
           <button id="catalog-tab-sale" class="segment active" data-catalog-tab="saleLabels" type="button">活動標籤</button>
+          <button id="catalog-tab-category" class="segment" data-catalog-tab="categories" type="button">商品分類</button>
           <button id="catalog-tab-brand" class="segment" data-catalog-tab="brands" type="button">品牌</button>
         </div>
         <div id="catalog-list" class="catalog-list"></div>
@@ -316,6 +334,79 @@
         <button id="save-catalog-button" class="primary-action" type="button">
           <i data-lucide="save"></i>
           儲存分類
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="theme-dialog" class="sheet-dialog wide-dialog">
+    <form method="dialog">
+      <header class="dialog-header">
+        <div>
+          <p class="eyebrow">THEME</p>
+          <h2>網頁配色</h2>
+        </div>
+        <button class="icon-button" value="cancel" formnovalidate aria-label="關閉" type="submit">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+
+      <div class="theme-body">
+        <p class="scope-note">選擇一組啟用中的配色，前台購物頁會自動套用。可保留桃紅色，也可新增命名配色。</p>
+        <div id="theme-list" class="theme-list"></div>
+      </div>
+
+      <footer class="dialog-actions">
+        <button id="add-theme-row" class="secondary-action" type="button">
+          <i data-lucide="plus"></i>
+          新增配色
+        </button>
+        <button id="save-theme-button" class="primary-action" type="button">
+          <i data-lucide="save"></i>
+          儲存配色
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="permission-dialog" class="sheet-dialog wide-dialog">
+    <form method="dialog">
+      <header class="dialog-header">
+        <div>
+          <p class="eyebrow">ACCESS</p>
+          <h2>權限管理</h2>
+        </div>
+        <button class="icon-button" value="cancel" formnovalidate aria-label="關閉" type="submit">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+
+      <div class="permission-body">
+        <div class="segmented permission-tabs" role="group" aria-label="權限管理類型">
+          <button class="segment active" data-permission-tab="users" type="button">使用者</button>
+          <button class="segment" data-permission-tab="logs" type="button">操作紀錄</button>
+          <button class="segment" data-permission-tab="loginLogs" type="button">登入紀錄</button>
+        </div>
+        <section id="permission-users-panel">
+          <p id="permission-scope" class="scope-note"></p>
+          <div id="permission-user-list" class="permission-user-list"></div>
+        </section>
+        <section id="permission-logs-panel" class="hidden">
+          <div id="permission-log-list" class="permission-log-list"></div>
+        </section>
+        <section id="permission-login-panel" class="hidden">
+          <div id="permission-login-list" class="permission-log-list"></div>
+        </section>
+      </div>
+
+      <footer class="dialog-actions">
+        <button id="add-permission-user" class="secondary-action" type="button">
+          <i data-lucide="user-plus"></i>
+          新增使用者
+        </button>
+        <button id="save-permission-button" class="primary-action" type="button">
+          <i data-lucide="save"></i>
+          儲存權限
         </button>
       </footer>
     </form>
