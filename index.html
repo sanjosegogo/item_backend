@@ -57,10 +57,13 @@
       <section id="sale-breakdown" class="sale-breakdown" aria-label="活動數量"></section>
 
       <section class="control-band">
-        <label class="search-box">
-          <i data-lucide="search"></i>
-          <input id="search-input" type="search" placeholder="搜尋名稱、品牌、活動">
-        </label>
+        <div class="search-command">
+          <label class="search-box">
+            <i data-lucide="search"></i>
+            <input id="search-input" type="search" placeholder="搜尋名稱、品牌、活動">
+          </label>
+          <button id="search-button" class="search-submit" type="button">搜尋</button>
+        </div>
         <div class="segmented" role="group" aria-label="篩選商品">
           <button class="segment active" data-filter="all" type="button">全部</button>
           <button class="segment" data-filter="live" type="button">上架</button>
@@ -196,6 +199,24 @@
               <i data-lucide="x"></i>
             </button>
           </div>
+        </label>
+        <label class="wide">
+          <span>IG 貼文 / Reels 連結</span>
+          <div class="social-link-field">
+            <input id="field-instagram-url" type="url" placeholder="商品專屬 IG 連結，沒填前台不顯示">
+            <button class="link-clear-action" type="button" data-clear-field="instagram-url">清除</button>
+            <span class="link-visible-note">顯示</span>
+          </div>
+          <small class="field-hint">清除後只是先清空編輯欄位，按儲存後才會真正更新。</small>
+        </label>
+        <label class="wide">
+          <span>FB 社團貼文連結</span>
+          <div class="social-link-field">
+            <input id="field-facebook-url" type="url" placeholder="商品專屬 FB 連結，沒填前台不顯示">
+            <button class="link-clear-action" type="button" data-clear-field="facebook-url">清除</button>
+            <span class="link-visible-note">顯示</span>
+          </div>
+          <small class="field-hint">商品沒填 FB 連結時，前台商品卡不會顯示 FB 專屬按鈕。</small>
         </label>
         <label class="wide">
           <span>圖片 1</span>
@@ -392,9 +413,23 @@
           <div id="permission-user-list" class="permission-user-list"></div>
         </section>
         <section id="permission-logs-panel" class="hidden">
+          <div class="search-command log-search-command">
+            <label class="search-box">
+              <i data-lucide="search"></i>
+              <input id="log-search-input" type="search" placeholder="搜尋帳號、動作、商品、變更內容">
+            </label>
+            <button id="log-search-button" class="search-submit" type="button">搜尋</button>
+          </div>
           <div id="permission-log-list" class="permission-log-list"></div>
         </section>
         <section id="permission-login-panel" class="hidden">
+          <div class="search-command log-search-command">
+            <label class="search-box">
+              <i data-lucide="search"></i>
+              <input id="login-log-search-input" type="search" placeholder="搜尋帳號、IP、地點、裝置">
+            </label>
+            <button id="login-log-search-button" class="search-submit" type="button">搜尋</button>
+          </div>
           <div id="permission-login-list" class="permission-log-list"></div>
         </section>
       </div>
