@@ -21,6 +21,11 @@ const state = {
   filter: "all",
   saleFilter: "",
   query: "",
+  pendingQuery: "",
+  logQuery: "",
+  pendingLogQuery: "",
+  loginLogQuery: "",
+  pendingLoginLogQuery: "",
   productRenderLimit: 0,
   customBrands: [],
   customSaleLabels: [],
@@ -41,13 +46,14 @@ function bindElements() {
   [
     "auth-view", "app-view", "google-login", "auth-retry", "auth-message", "user-label", "sync-button",
     "search-input", "product-list", "empty-state", "count-live", "count-paused", "count-sale", "sale-breakdown",
-    "sale-filter-select", "add-product-button", "marquee-button", "catalog-button", "theme-button", "permission-button",
+    "search-button", "sale-filter-select", "add-product-button", "marquee-button", "catalog-button", "theme-button", "permission-button",
     "archive-product-button", "add-brand-option", "add-sale-option", "add-category-option", "product-dialog", "product-form", "dialog-title",
     "save-product-button", "marquee-dialog", "marquee-list", "add-marquee-row", "save-marquee-button",
     "catalog-dialog", "catalog-list", "add-catalog-row", "save-catalog-button", "theme-dialog", "theme-list",
     "add-theme-row", "save-theme-button", "permission-dialog", "permission-scope", "permission-users-panel",
     "permission-logs-panel", "permission-login-panel", "permission-user-list", "permission-log-list",
-    "permission-login-list", "add-permission-user", "save-permission-button", "toast", "dialog-toast",
+    "permission-login-list", "log-search-input", "log-search-button", "login-log-search-input", "login-log-search-button",
+    "add-permission-user", "save-permission-button", "toast", "dialog-toast",
   ].forEach((id) => {
     els[toCamel(id)] = document.getElementById(id);
   });
@@ -57,10 +63,15 @@ function bindEvents() {
   els.authRetry.addEventListener("click", setupAuth);
   els.syncButton.addEventListener("click", loadAdminData);
   els.searchInput.addEventListener("input", (event) => {
-    state.query = event.target.value.trim().toLowerCase();
-    resetProductRenderLimit();
-    renderProducts();
+    state.pendingQuery = event.target.value.trim().toLowerCase();
   });
+  els.searchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyProductSearch();
+    }
+  });
+  els.searchButton.addEventListener("click", applyProductSearch);
   els.saleFilterSelect.addEventListener("change", (event) => {
     state.saleFilter = event.target.value;
     resetProductRenderLimit();
@@ -107,6 +118,22 @@ function bindEvents() {
       renderPermissionPanels();
     });
   });
+  els.logSearchInput.addEventListener("input", (event) => state.pendingLogQuery = event.target.value.trim().toLowerCase());
+  els.logSearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyLogSearch();
+    }
+  });
+  els.logSearchButton.addEventListener("click", applyLogSearch);
+  els.loginLogSearchInput.addEventListener("input", (event) => state.pendingLoginLogQuery = event.target.value.trim().toLowerCase());
+  els.loginLogSearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyLoginLogSearch();
+    }
+  });
+  els.loginLogSearchButton.addEventListener("click", applyLoginLogSearch);
   ["market-price", "sale-price", "special-price"].forEach((name) => {
     document.getElementById(`field-${name}`).addEventListener("input", updateDiscountFields);
   });
@@ -120,6 +147,12 @@ function bindEvents() {
     document.getElementById(`field-image-${index}`).addEventListener("input", () => updateImagePreview(index));
     document.getElementById(`file-image-${index}`).addEventListener("change", () => handleImageFileSelected(index));
   }
+}
+
+function applyProductSearch() {
+  state.query = state.pendingQuery;
+  resetProductRenderLimit();
+  renderProducts();
 }
 
 async function setupAuth() {
@@ -230,7 +263,7 @@ function renderSaleBreakdown() {
     counts.set(product.saleLabel, (counts.get(product.saleLabel) || 0) + 1);
   });
   const items = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hant"));
-  els.saleBreakdown.innerHTML = items.map(([label, count]) => `<span class="sale-count">${escapeHtml(label)}<strong>${count}項</strong></span>`).join("");
+  els.saleBreakdown.innerHTML = items.length ? `<div class="sale-breakdown-head"><span>活動統計</span><strong>全部 ${items.reduce((sum, item) => sum + item[1], 0)} 項</strong></div><div class="sale-count-scroll">${items.map(([label, count]) => `<span class="sale-count"><span>${escapeHtml(label)}</span><strong>${count}項</strong></span>`).join("")}</div>` : "";
   els.saleBreakdown.classList.toggle("hidden", items.length === 0);
 }
 
@@ -330,7 +363,7 @@ async function persistProduct(product, message) {
 function openProductDialog(product = null) {
   const isNew = !product;
   const nextId = Math.max(0, ...state.products.map((item) => Number(item.id) || 0)) + 1;
-  const value = product || { id: nextId, active: true, category: "鞋包配飾", saleLabel: "", discount: "", specialDiscount: "", name: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", internalNote: "", archived: false, images: [] };
+  const value = product || { id: nextId, active: true, category: "鞋包配飾", saleLabel: "", discount: "", specialDiscount: "", name: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
   els.dialogTitle.textContent = isNew ? "新增商品" : "編輯商品";
   populateOptionSelects(value);
   setField("id", value.id);
@@ -347,6 +380,8 @@ function openProductDialog(product = null) {
   setField("discount", value.discount);
   setField("special-discount", value.specialDiscount);
   setField("post-url", value.postUrl);
+  setField("instagram-url", value.instagramUrl);
+  setField("facebook-url", value.facebookUrl);
   els.archiveProductButton.classList.toggle("hidden", isNew);
   els.archiveProductButton.innerHTML = value.archived ? '<i data-lucide="archive-restore"></i> 解除封存' : '<i data-lucide="archive"></i> 封存商品';
   for (let index = 1; index <= 5; index += 1) {
@@ -406,6 +441,8 @@ function readProductForm() {
     category: getField("category") || "鞋包配飾",
     brand: getField("brand") || "其他",
     postUrl: getField("post-url"),
+    instagramUrl: getField("instagram-url"),
+    facebookUrl: getField("facebook-url"),
     internalNote: getField("internal-note"),
     archived: existing?.archived || false,
     images: [1, 2, 3, 4, 5].map((index) => getField(`image-${index}`)).filter(Boolean),
@@ -898,11 +935,26 @@ function renderPermissionUsers() {
 }
 
 function renderPermissionLogs() {
-  renderLogList(els.permissionLogList, state.adminLogs, (log) => `<div class="log-head"><strong>${escapeHtml(log.action || "操作")}</strong><span>${escapeHtml(formatLogTime(log.time))}</span></div><p>${escapeHtml(log.email || "")}</p><p>${escapeHtml(log.target || "")}${log.summary ? ` / ${escapeHtml(log.summary)}` : ""}</p>${log.details ? `<pre>${escapeHtml(log.details)}</pre>` : ""}`);
+  renderLogList(els.permissionLogList, filterLogs(state.adminLogs, state.logQuery, ["email", "action", "target", "summary", "details"]), (log) => `<div class="log-head"><strong>${escapeHtml(log.action || "操作")}</strong><span>${escapeHtml(formatLogTime(log.time))}</span></div><p>${escapeHtml(log.email || "")}</p><p>${escapeHtml(log.target || "")}${log.summary ? ` / ${escapeHtml(log.summary)}` : ""}</p>${log.details ? `<pre>${escapeHtml(log.details)}</pre>` : ""}`);
 }
 
 function renderPermissionLoginLogs() {
-  renderLogList(els.permissionLoginList, state.loginLogs, (log) => `<div class="log-head"><strong>${escapeHtml(log.email || "登入")}</strong><span>${escapeHtml(formatLogTime(log.time))}</span></div><p>${escapeHtml([log.country, log.city].filter(Boolean).join(" / ") || "位置未知")}${log.ip ? ` / IP：${escapeHtml(log.ip)}` : ""}</p><p>${escapeHtml([log.deviceType, log.browser, log.os].filter(Boolean).join(" / ") || "裝置未知")}${log.screen ? ` / ${escapeHtml(log.screen)}` : ""}</p>${log.userAgent ? `<pre>${escapeHtml(log.userAgent)}</pre>` : ""}`);
+  renderLogList(els.permissionLoginList, filterLogs(state.loginLogs, state.loginLogQuery, ["email", "ip", "country", "city", "region", "deviceType", "browser", "os", "screen", "userAgent"]), (log) => `<div class="log-head"><strong>${escapeHtml(log.email || "登入")}</strong><span>${escapeHtml(formatLogTime(log.time))}</span></div><p>${escapeHtml([log.country, log.city].filter(Boolean).join(" / ") || "位置未知")}${log.ip ? ` / IP：${escapeHtml(log.ip)}` : ""}</p><p>${escapeHtml([log.deviceType, log.browser, log.os].filter(Boolean).join(" / ") || "裝置未知")}${log.screen ? ` / ${escapeHtml(log.screen)}` : ""}</p>${log.userAgent ? `<pre>${escapeHtml(log.userAgent)}</pre>` : ""}`);
+}
+
+function filterLogs(items, query, keys) {
+  if (!query) return items;
+  return items.filter((item) => keys.map((key) => item[key]).filter(Boolean).join(" ").toLowerCase().includes(query));
+}
+
+function applyLogSearch() {
+  state.logQuery = state.pendingLogQuery;
+  renderPermissionLogs();
+}
+
+function applyLoginLogSearch() {
+  state.loginLogQuery = state.pendingLoginLogQuery;
+  renderPermissionLoginLogs();
 }
 
 function renderLogList(container, items, template) {
