@@ -21,6 +21,7 @@ const state = {
   filter: "all",
   saleFilter: "",
   query: "",
+  productRenderLimit: 0,
   customBrands: [],
   customSaleLabels: [],
   customCategories: [],
@@ -57,15 +58,18 @@ function bindEvents() {
   els.syncButton.addEventListener("click", loadAdminData);
   els.searchInput.addEventListener("input", (event) => {
     state.query = event.target.value.trim().toLowerCase();
+    resetProductRenderLimit();
     renderProducts();
   });
   els.saleFilterSelect.addEventListener("change", (event) => {
     state.saleFilter = event.target.value;
+    resetProductRenderLimit();
     renderProducts();
   });
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       state.filter = button.dataset.filter;
+      resetProductRenderLimit();
       document.querySelectorAll("[data-filter]").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
       renderAll();
@@ -240,13 +244,15 @@ function renderSaleFilterOptions() {
 
 function renderProducts() {
   const products = filteredProducts();
+  if (!state.productRenderLimit) resetProductRenderLimit();
+  const visibleProducts = products.slice(0, state.productRenderLimit);
   els.productList.innerHTML = "";
   els.emptyState.classList.toggle("hidden", products.length > 0);
-  products.forEach((product) => {
+  visibleProducts.forEach((product) => {
     const card = document.createElement("article");
     card.className = "product-card";
     card.innerHTML = `
-      <img class="product-thumb" src="${escapeAttr(product.images?.[0] || "")}" alt="">
+      <img class="product-thumb" src="${escapeAttr(product.images?.[0] || "")}" alt="" loading="lazy" decoding="async">
       <div class="product-main">
         <div class="product-line"><h2 class="product-title">${escapeHtml(product.name)}</h2><span class="product-id">#${escapeHtml(product.id)}</span></div>
         <p class="product-price">${formatPrice(product.specialPrice || product.salePrice)}</p>
@@ -266,7 +272,26 @@ function renderProducts() {
     card.querySelector(".edit-button").addEventListener("click", () => openProductDialog(product));
     els.productList.appendChild(card);
   });
+  if (products.length > visibleProducts.length) {
+    const more = document.createElement("button");
+    more.className = "load-more-button";
+    more.type = "button";
+    more.textContent = `再顯示 ${Math.min(getProductRenderStep(), products.length - visibleProducts.length)} 件商品`;
+    more.addEventListener("click", () => {
+      state.productRenderLimit += getProductRenderStep();
+      renderProducts();
+    });
+    els.productList.appendChild(more);
+  }
   refreshIcons();
+}
+
+function resetProductRenderLimit() {
+  state.productRenderLimit = getProductRenderStep();
+}
+
+function getProductRenderStep() {
+  return window.matchMedia("(max-width: 680px)").matches ? 24 : 60;
 }
 
 function filteredProducts() {
@@ -541,7 +566,8 @@ function extractDriveFileId(url) {
 }
 
 async function prepareImageUpload(file, imageIndex, product) {
-  const dataUrl = await resizeImage(file, 1600, 0.84);
+  const isMobile = window.matchMedia("(max-width: 680px)").matches;
+  const dataUrl = await resizeImage(file, isMobile ? 1280 : 1600, isMobile ? 0.78 : 0.84);
   const [meta, base64] = dataUrl.split(",");
   return { fileName: buildImageFileName(file, imageIndex, product), mimeType: meta.match(/data:(.*);base64/)?.[1] || "image/jpeg", base64 };
 }
@@ -938,7 +964,8 @@ async function recordLoginOnce() {
 async function collectLoginClientInfo() {
   const geo = await fetchGeoInfo();
   const ua = navigator.userAgent || "";
-  return { ip: geo.ip || "", country: geo.country || geo.country_name || "", region: geo.region || "", city: geo.city || "", timezone: geo.timezone || "", org: geo.org || geo.asn || "", deviceType: detectDeviceType(ua), browser: detectBrowser(ua), os: detectOs(ua), language: navigator.language || "", screen: `${window.screen?.width || ""}x${window.screen?.height || ""}`, userAgent: ua };
+  const screen = `${window.screen?.width || ""}x${window.screen?.height || ""}`;
+  return { ip: geo.ip || "", country: geo.country || geo.country_name || "", region: geo.region || "", city: geo.city || "", timezone: geo.timezone || "", org: geo.org || geo.asn || "", deviceType: detectDeviceModel(ua, screen), browser: detectBrowser(ua), os: detectOs(ua), language: navigator.language || "", screen, userAgent: ua };
 }
 
 async function fetchGeoInfo() {
@@ -958,6 +985,47 @@ function detectDeviceType(ua) {
   if (/ipad|tablet/i.test(ua)) return "平板";
   if (/mobile|iphone|android/i.test(ua)) return "手機";
   return "電腦";
+}
+
+function detectDeviceModel(ua, screen) {
+  const samsungModel = ua.match(/\b(SM-[A-Z0-9]+)\b/i)?.[1]?.toUpperCase();
+  const samsungMap = {
+    "SM-S928": "Samsung Galaxy S24 Ultra",
+    "SM-S926": "Samsung Galaxy S24+",
+    "SM-S921": "Samsung Galaxy S24",
+    "SM-S918": "Samsung Galaxy S23 Ultra",
+    "SM-S916": "Samsung Galaxy S23+",
+    "SM-S911": "Samsung Galaxy S23",
+    "SM-F956": "Samsung Galaxy Z Fold6",
+    "SM-F741": "Samsung Galaxy Z Flip6",
+  };
+  if (samsungModel) {
+    const prefix = Object.keys(samsungMap).find((key) => samsungModel.startsWith(key));
+    return prefix ? samsungMap[prefix] : `Samsung ${samsungModel}`;
+  }
+
+  if (/iPhone/.test(ua)) {
+    const dpr = Math.round((window.devicePixelRatio || 1) * 100) / 100;
+    const normalized = screen.split("x").map((value) => Number(value)).sort((a, b) => a - b).join("x");
+    const iPhoneMap = {
+      "393x852@3": "iPhone 16 / 16 Pro（推測）",
+      "402x874@3": "iPhone 16 Pro（推測）",
+      "430x932@3": "iPhone 16 Plus / 15 Plus（推測）",
+      "440x956@3": "iPhone 16 Pro Max（推測）",
+      "390x844@3": "iPhone 15 / 14 / 13（推測）",
+      "428x926@3": "iPhone 14 Plus / 13 Pro Max（推測）",
+      "414x896@3": "iPhone 11 / XR / XS Max（推測）",
+      "375x812@3": "iPhone X / XS / 11 Pro / 12 mini / 13 mini（推測）",
+    };
+    return iPhoneMap[`${normalized}@${dpr}`] || `iPhone（型號受瀏覽器限制，${screen} @${dpr}x）`;
+  }
+
+  if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "iPad";
+  if (/Android/.test(ua)) {
+    const model = ua.match(/Android [^;]+;\s*([^;)]+?)(?: Build|\))/i)?.[1]?.trim();
+    return model ? `Android ${model}` : "Android 手機";
+  }
+  return detectDeviceType(ua);
 }
 
 function detectBrowser(ua) {
