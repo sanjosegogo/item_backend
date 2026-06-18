@@ -288,6 +288,7 @@ function renderProducts() {
       <img class="product-thumb" src="${escapeAttr(product.images?.[0] || "")}" alt="" loading="lazy" decoding="async">
       <div class="product-main">
         <div class="product-line"><h2 class="product-title">${escapeHtml(product.name)}</h2><span class="product-id">#${escapeHtml(product.id)}</span></div>
+        ${product.productFeature ? `<p class="product-feature-line">${escapeHtml(product.productFeature)}</p>` : ""}
         <p class="product-price">${formatPrice(product.specialPrice || product.salePrice)}</p>
         <div class="product-meta">
           <span class="pill ${product.active ? "live" : "paused"}">${product.active ? "上架" : "下架"}</span>
@@ -331,7 +332,7 @@ function filteredProducts() {
   return state.products.filter((product) => {
     const matchesFilter = state.filter === "all" || (state.filter === "live" && product.active && !product.archived) || (state.filter === "paused" && !product.active && !product.archived) || (state.filter === "archived" && product.archived);
     const matchesSale = !state.saleFilter || (state.saleFilter === "__none__" && !product.saleLabel) || product.saleLabel === state.saleFilter;
-    const haystack = [product.name, product.category, product.brand, product.saleLabel, product.size].filter(Boolean).join(" ").toLowerCase();
+    const haystack = [product.name, product.productFeature, product.category, product.brand, product.saleLabel, product.size].filter(Boolean).join(" ").toLowerCase();
     return matchesFilter && matchesSale && (state.filter === "archived" || !product.archived) && (!state.query || haystack.includes(state.query));
   }).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 }
@@ -363,7 +364,7 @@ async function persistProduct(product, message) {
 function openProductDialog(product = null) {
   const isNew = !product;
   const nextId = Math.max(0, ...state.products.map((item) => Number(item.id) || 0)) + 1;
-  const value = product || { id: nextId, active: true, category: "鞋包配飾", saleLabel: "", discount: "", specialDiscount: "", name: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
+  const value = product || { id: nextId, active: true, category: "鞋包配飾", saleLabel: "", discount: "", specialDiscount: "", name: "", productFeature: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
   els.dialogTitle.textContent = isNew ? "新增商品" : "編輯商品";
   populateOptionSelects(value);
   setField("id", value.id);
@@ -372,6 +373,7 @@ function openProductDialog(product = null) {
   setField("category", value.category || "鞋包配飾");
   setField("brand", value.brand);
   setField("name", value.name);
+  setField("product-feature", value.productFeature);
   setField("size", value.size);
   setField("sale-label", value.saleLabel);
   setField("market-price", value.marketPrice);
@@ -434,6 +436,7 @@ function readProductForm() {
     discount: getField("discount"),
     specialDiscount: getField("special-discount"),
     name: getField("name"),
+    productFeature: getField("product-feature"),
     marketPrice: getField("market-price"),
     salePrice: getField("sale-price"),
     specialPrice: getField("special-price"),
@@ -706,12 +709,13 @@ function renderCatalogRows() {
     const usage = countCatalogUsage(state.catalogTab, item.name);
     const row = document.createElement("article");
     row.className = "catalog-row";
-    row.innerHTML = `<button class="catalog-status ${item.active ? "active" : ""}" type="button" data-toggle-catalog>${item.active ? "啟用" : "停用"}</button><input type="text" value="${escapeAttr(item.name)}" data-catalog-name><button class="mini-action danger-action" type="button" data-delete-catalog><i data-lucide="trash-2"></i></button><small class="field-hint">使用中：${usage} 件</small>`;
+    row.innerHTML = `<button class="catalog-status ${item.active ? "active" : ""}" type="button" data-toggle-catalog>${item.active ? "啟用" : "停用"}</button><input type="text" value="${escapeAttr(item.name)}" data-catalog-name><input class="catalog-sort-input" type="number" min="1" inputmode="numeric" value="${escapeAttr(item.sort || index + 1)}" data-catalog-sort aria-label="排序"><button class="mini-action danger-action" type="button" data-delete-catalog><i data-lucide="trash-2"></i></button><small class="field-hint">排序數字小的排前面｜使用中：${usage} 件</small>`;
     row.querySelector("[data-toggle-catalog]").addEventListener("click", () => {
       item.active = !item.active;
       renderCatalogRows();
     });
     row.querySelector("[data-catalog-name]").addEventListener("input", (event) => item.name = event.target.value.trim());
+    row.querySelector("[data-catalog-sort]").addEventListener("input", (event) => item.sort = Number(event.target.value) || index + 1);
     row.querySelector("[data-delete-catalog]").addEventListener("click", () => {
       if (usage > 0) return toast(`此分類仍有 ${usage} 件商品使用中，請先改名或停用。`, "warn");
       list.splice(index, 1);
