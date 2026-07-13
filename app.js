@@ -293,7 +293,7 @@ function renderProducts() {
         <div class="product-meta">
           <span class="pill ${product.active ? "live" : "paused"}">${product.active ? "上架" : "下架"}</span>
           ${product.archived ? '<span class="pill paused">封存</span>' : ""}
-          <span class="pill">${escapeHtml(product.category || "鞋包配飾")}</span>
+          <span class="pill">${escapeHtml(product.category || "未分類")}</span>
           <span class="pill">${escapeHtml(product.brand || "其他")}</span>
           ${product.saleLabel ? `<span class="pill sale">${escapeHtml(product.saleLabel)}</span>` : ""}
         </div>
@@ -364,13 +364,13 @@ async function persistProduct(product, message) {
 function openProductDialog(product = null) {
   const isNew = !product;
   const nextId = Math.max(0, ...state.products.map((item) => Number(item.id) || 0)) + 1;
-  const value = product || { id: nextId, active: true, category: "鞋包配飾", saleLabel: "", discount: "", specialDiscount: "", name: "", productFeature: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
+  const value = product || { id: nextId, active: true, category: "", saleLabel: "", discount: "", specialDiscount: "", name: "", productFeature: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
   els.dialogTitle.textContent = isNew ? "新增商品" : "編輯商品";
   populateOptionSelects(value);
   setField("id", value.id);
   setField("internal-note", value.internalNote);
   setField("active", value.active ? "TRUE" : "FALSE");
-  setField("category", value.category || "鞋包配飾");
+  setField("category", value.category || "");
   setField("brand", value.brand);
   setField("name", value.name);
   setField("product-feature", value.productFeature);
@@ -441,7 +441,7 @@ function readProductForm() {
     salePrice: getField("sale-price"),
     specialPrice: getField("special-price"),
     size: getField("size") || "F",
-    category: getField("category") || "鞋包配飾",
+    category: getField("category"),
     brand: getField("brand") || "其他",
     postUrl: getField("post-url"),
     instagramUrl: getField("instagram-url"),
@@ -466,7 +466,7 @@ async function archiveCurrentProduct() {
 }
 
 function populateOptionSelects(product = {}) {
-  populateSelect(document.getElementById("field-category"), getCategoryOptions(), product.category || "鞋包配飾", "選擇分類");
+  populateSelect(document.getElementById("field-category"), getCategoryOptions(), product.category || "", "選擇分類");
   populateSelect(document.getElementById("field-brand"), getBrandOptions(), product.brand, "選擇品牌");
   populateSelect(document.getElementById("field-sale-label"), getSaleOptions(), product.saleLabel, "無活動");
 }
@@ -487,7 +487,7 @@ function getSaleOptions() {
 }
 
 function getCategoryOptions() {
-  return [...state.categories.filter((item) => item.active).map((item) => item.name), ...state.products.map((product) => product.category), ...state.customCategories, "鞋包配飾"].filter(Boolean);
+  return state.categories.filter((item) => item.active).map((item) => item.name).filter(Boolean);
 }
 
 function addOption(type) {
@@ -770,7 +770,7 @@ function normalizeCatalog(items, fallbackType) {
   const sourceValues = fallbackType === "brand"
     ? state.products.map((product) => product.brand)
     : fallbackType === "category"
-      ? [...state.products.map((product) => product.category), "鞋包配飾"]
+      ? state.products.map((product) => product.category)
       : state.products.map((product) => product.saleLabel);
   return cleanCatalog(items.length ? items : [...new Set(sourceValues.filter(Boolean))].map((name, index) => makeCatalogItem(name, index + 1)));
 }
