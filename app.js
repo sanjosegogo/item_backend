@@ -293,7 +293,7 @@ function renderProducts() {
         <div class="product-meta">
           <span class="pill ${product.active ? "live" : "paused"}">${product.active ? "販售中" : "已售出"}</span>
           ${product.archived ? '<span class="pill paused">封存</span>' : ""}
-          ${product.active && stockHintLabel(product.stockHint) ? `<span class="pill stock">${escapeHtml(stockHintLabel(product.stockHint))}</span>` : ""}
+          ${product.active && stockCountLabel(product.stockCount ?? product.stockHint) ? `<span class="pill stock">${escapeHtml(stockCountLabel(product.stockCount ?? product.stockHint))}</span>` : ""}
           <span class="pill">${escapeHtml(product.category || "未分類")}</span>
           <span class="pill">${escapeHtml(product.brand || "其他")}</span>
           ${product.saleLabel ? `<span class="pill sale">${escapeHtml(product.saleLabel)}</span>` : ""}
@@ -365,13 +365,13 @@ async function persistProduct(product, message) {
 function openProductDialog(product = null) {
   const isNew = !product;
   const nextId = Math.max(0, ...state.products.map((item) => Number(item.id) || 0)) + 1;
-  const value = product || { id: nextId, active: true, stockHint: "", category: "", saleLabel: "", discount: "", specialDiscount: "", name: "", productFeature: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
+  const value = product || { id: nextId, active: true, stockCount: "", category: "", saleLabel: "", discount: "", specialDiscount: "", name: "", productFeature: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
   els.dialogTitle.textContent = isNew ? "新增商品" : "編輯商品";
   populateOptionSelects(value);
   setField("id", value.id);
   setField("internal-note", value.internalNote);
   setField("active", value.active ? "TRUE" : "FALSE");
-  setField("stock-hint", value.stockHint || "");
+  setField("stock-count", normalizeStockCount(value.stockCount ?? value.stockHint));
   setField("category", value.category || "");
   setField("brand", value.brand);
   setField("name", value.name);
@@ -434,7 +434,7 @@ function readProductForm() {
   return {
     id: getField("id"),
     active: getField("active") === "TRUE",
-    stockHint: getField("stock-hint"),
+    stockCount: getField("stock-count"),
     saleLabel: getField("sale-label"),
     discount: getField("discount"),
     specialDiscount: getField("special-discount"),
@@ -468,10 +468,19 @@ async function archiveCurrentProduct() {
   renderAll();
 }
 
-function stockHintLabel(value) {
-  if (value === "last_1") return "最後 1 件";
-  if (value === "last_2") return "僅餘 2 件";
-  if (value === "last_3") return "僅餘 3 件";
+function normalizeStockCount(value) {
+  if (value === "last_1") return 1;
+  if (value === "last_2") return 2;
+  if (value === "last_3") return 3;
+  const count = Number.parseInt(value, 10);
+  return Number.isInteger(count) && count > 0 ? count : "";
+}
+
+function stockCountLabel(value) {
+  const count = normalizeStockCount(value);
+  if (count === 1) return "最後 1 件";
+  if (count === 2) return "僅餘 2 件";
+  if (count === 3) return "僅餘 3 件";
   return "";
 }
 
