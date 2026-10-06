@@ -484,6 +484,11 @@ button {
   color: var(--amber);
 }
 
+.pill.stock {
+  background: #fff1f2;
+  color: var(--accent-dark);
+}
+
 .card-actions {
   display: grid;
   grid-template-columns: 1fr 44px;
