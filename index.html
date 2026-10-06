@@ -135,14 +135,9 @@
           </select>
         </label>
         <label>
-          <span>庫存提示</span>
-          <select id="field-stock-hint">
-            <option value="">不顯示</option>
-            <option value="last_1">最後 1 件</option>
-            <option value="last_2">僅餘 2 件</option>
-            <option value="last_3">僅餘 3 件</option>
-          </select>
-          <small class="field-hint">只在販售中商品顯示；已售出時會自動忽略。</small>
+          <span>剩餘件數（選填）</span>
+          <input id="field-stock-count" type="number" min="1" step="1" inputmode="numeric" placeholder="留空則不顯示">
+          <small class="field-hint">填 1～3 件時前台會顯示提示；4 件以上或留空不顯示，已售出時自動忽略。</small>
         </label>
         <label>
           <span>商品分類</span>
