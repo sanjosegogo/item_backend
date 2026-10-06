@@ -291,14 +291,15 @@ function renderProducts() {
         ${product.productFeature ? `<p class="product-feature-line">${escapeHtml(product.productFeature)}</p>` : ""}
         <p class="product-price">${formatPrice(product.specialPrice || product.salePrice)}</p>
         <div class="product-meta">
-          <span class="pill ${product.active ? "live" : "paused"}">${product.active ? "上架" : "下架"}</span>
+          <span class="pill ${product.active ? "live" : "paused"}">${product.active ? "販售中" : "已售出"}</span>
           ${product.archived ? '<span class="pill paused">封存</span>' : ""}
+          ${product.active && stockHintLabel(product.stockHint) ? `<span class="pill stock">${escapeHtml(stockHintLabel(product.stockHint))}</span>` : ""}
           <span class="pill">${escapeHtml(product.category || "未分類")}</span>
           <span class="pill">${escapeHtml(product.brand || "其他")}</span>
           ${product.saleLabel ? `<span class="pill sale">${escapeHtml(product.saleLabel)}</span>` : ""}
         </div>
         <div class="card-actions">
-          <button class="toggle-button ${product.active ? "live" : "paused"}" type="button">${product.archived ? "恢復商品" : product.active ? "目前上架" : "目前下架"}</button>
+          <button class="toggle-button ${product.active ? "live" : "paused"}" type="button">${product.archived ? "恢復商品" : product.active ? "標記為已售出" : "恢復販售"}</button>
           <button class="edit-button" type="button" aria-label="編輯"><i data-lucide="pencil"></i></button>
         </div>
       </div>`;
@@ -344,12 +345,12 @@ async function toggleProduct(id) {
     product.archived = false;
     product.active = false;
     renderAll();
-    await persistProduct(product, "商品已恢復為下架狀態");
+    await persistProduct(product, "商品已恢復為已售出狀態");
     return;
   }
   product.active = !product.active;
   renderAll();
-  await persistProduct(product, "上下架已更新");
+  await persistProduct(product, product.active ? "商品已恢復販售" : "商品已標記為已售出");
 }
 
 async function persistProduct(product, message) {
@@ -364,12 +365,13 @@ async function persistProduct(product, message) {
 function openProductDialog(product = null) {
   const isNew = !product;
   const nextId = Math.max(0, ...state.products.map((item) => Number(item.id) || 0)) + 1;
-  const value = product || { id: nextId, active: true, category: "", saleLabel: "", discount: "", specialDiscount: "", name: "", productFeature: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
+  const value = product || { id: nextId, active: true, stockHint: "", category: "", saleLabel: "", discount: "", specialDiscount: "", name: "", productFeature: "", marketPrice: "", salePrice: "", specialPrice: "", size: "F", brand: "", postUrl: "", instagramUrl: "", facebookUrl: "", internalNote: "", archived: false, images: [] };
   els.dialogTitle.textContent = isNew ? "新增商品" : "編輯商品";
   populateOptionSelects(value);
   setField("id", value.id);
   setField("internal-note", value.internalNote);
   setField("active", value.active ? "TRUE" : "FALSE");
+  setField("stock-hint", value.stockHint || "");
   setField("category", value.category || "");
   setField("brand", value.brand);
   setField("name", value.name);
@@ -432,6 +434,7 @@ function readProductForm() {
   return {
     id: getField("id"),
     active: getField("active") === "TRUE",
+    stockHint: getField("stock-hint"),
     saleLabel: getField("sale-label"),
     discount: getField("discount"),
     specialDiscount: getField("special-discount"),
@@ -455,14 +458,21 @@ function readProductForm() {
 async function archiveCurrentProduct() {
   const product = state.products.find((item) => String(item.id) === String(getField("id")));
   if (!product) return;
-  if (!product.archived && !window.confirm("封存後商品會立即下架，並從一般商品列表隱藏。確定要封存嗎？")) return;
+  if (!product.archived && !window.confirm("封存後商品會立即從前台與一般商品列表隱藏。確定要封存嗎？")) return;
   product.archived = !product.archived;
   product.active = false;
   setButtonState(els.archiveProductButton, "saving", product.archived ? "封存中..." : "恢復中...");
-  await persistProduct(product, product.archived ? "商品已封存並下架" : "商品已恢復為下架狀態");
+  await persistProduct(product, product.archived ? "商品已封存並從前台隱藏" : "商品已恢復為已售出狀態");
   resetButtonState(els.archiveProductButton, "封存商品");
   els.productDialog.close();
   renderAll();
+}
+
+function stockHintLabel(value) {
+  if (value === "last_1") return "最後 1 件";
+  if (value === "last_2") return "僅餘 2 件";
+  if (value === "last_3") return "僅餘 3 件";
+  return "";
 }
 
 function populateOptionSelects(product = {}) {
