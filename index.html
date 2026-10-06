@@ -43,11 +43,11 @@
       <section class="summary-strip" aria-label="商品狀態">
         <article>
           <span id="count-live">0</span>
-          <p>上架</p>
+          <p>販售中</p>
         </article>
         <article>
           <span id="count-paused">0</span>
-          <p>下架</p>
+          <p>已售出</p>
         </article>
         <article>
           <span id="count-sale">0</span>
@@ -66,8 +66,8 @@
         </div>
         <div class="segmented" role="group" aria-label="篩選商品">
           <button class="segment active" data-filter="all" type="button">全部</button>
-          <button class="segment" data-filter="live" type="button">上架</button>
-          <button class="segment" data-filter="paused" type="button">下架</button>
+          <button class="segment" data-filter="live" type="button">販售中</button>
+          <button class="segment" data-filter="paused" type="button">已售出</button>
           <button class="segment" data-filter="archived" type="button">封存</button>
         </div>
         <label class="filter-select">
@@ -128,11 +128,21 @@
           <textarea id="field-internal-note" rows="3" placeholder="只給內部查看，例如：王小姐想預定、Yahoo 同款較便宜需確認價格"></textarea>
         </label>
         <label>
-          <span>上架狀態</span>
+          <span>銷售狀態</span>
           <select id="field-active">
-            <option value="TRUE">上架</option>
-            <option value="FALSE">下架</option>
+            <option value="TRUE">販售中</option>
+            <option value="FALSE">已售出</option>
           </select>
+        </label>
+        <label>
+          <span>庫存提示</span>
+          <select id="field-stock-hint">
+            <option value="">不顯示</option>
+            <option value="last_1">最後 1 件</option>
+            <option value="last_2">僅餘 2 件</option>
+            <option value="last_3">僅餘 3 件</option>
+          </select>
+          <small class="field-hint">只在販售中商品顯示；已售出時會自動忽略。</small>
         </label>
         <label>
           <span>商品分類</span>
